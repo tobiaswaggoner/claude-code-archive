@@ -10,7 +10,7 @@ packages/
 ├── server/      # API server (PostgreSQL backend)
 ├── collector/   # CLI sync tool (manual or cron)
 ├── runner/      # Headless session control
-└── web/         # NextJS UI (later)
+└── web/         # Next.js 16 UI (siehe UI-PRIME.md)
 ```
 
 ## Key Files
@@ -109,6 +109,21 @@ DATABASE_URL=postgresql://claude_archive:password@192.168.178.202:5432/hiddensto
 ```
 
 **Local Development:** PostgreSQL on `minix-k3s` (192.168.178.202), namespace `development`, schema `claude_archive`.
+
+## Web UI
+
+Next.js 16 Backoffice Application.
+
+**Für UI-Arbeit:** Lies zuerst `packages/web/UI-PRIME.md` - das gibt dir Orientierung ohne alle Specs laden zu müssen.
+
+```bash
+cd packages/web
+pnpm dev          # localhost:3000
+pnpm test         # Vitest
+pnpm test:e2e     # Playwright
+```
+
+**Specs:** `packages/web/docs/` (Design System, Layout, Components, Views, Auth, Architecture)
 
 ## Development
 
