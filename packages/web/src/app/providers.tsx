@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Container,
   ContainerContext,
@@ -9,7 +10,9 @@ import {
   container,
   MockAuthService,
   BetterAuthService,
+  ApiClient,
 } from "@/core";
+import { ProjectsService } from "@/features/projects";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
@@ -24,6 +27,16 @@ interface ProvidersProps {
  */
 const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? "mock";
 
+// Create a query client for TanStack Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000, // 30 seconds
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 /**
  * Register default services in the container
  */
@@ -35,9 +48,14 @@ function registerServices(target: Container) {
     target.register(TOKENS.AuthService, () => new MockAuthService());
   }
 
-  // TODO: Register other services when needed
-  // target.register(TOKENS.ApiClient, () => new ApiClient());
-  // target.register(TOKENS.ProjectsService, () => new ProjectsService());
+  // API Client
+  target.register(TOKENS.ApiClient, () => new ApiClient());
+
+  // Feature Services
+  target.register(
+    TOKENS.ProjectsService,
+    () => new ProjectsService(target.resolve(TOKENS.ApiClient))
+  );
 }
 
 export function Providers({ children, diOverrides }: ProvidersProps) {
@@ -64,19 +82,21 @@ export function Providers({ children, diOverrides }: ProvidersProps) {
   }
 
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <ContainerContext.Provider value={currentContainer}>
-        <TooltipProvider>
-          <SidebarProvider defaultOpen={true}>
-            {children}
-          </SidebarProvider>
-        </TooltipProvider>
-      </ContainerContext.Provider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="dark"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <ContainerContext.Provider value={currentContainer}>
+          <TooltipProvider>
+            <SidebarProvider defaultOpen={true}>
+              {children}
+            </SidebarProvider>
+          </TooltipProvider>
+        </ContainerContext.Provider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
