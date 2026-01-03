@@ -174,6 +174,7 @@ export const syncWorkspaceSchema = z.object({
       agentId: z.string().nullable(),
       parentOriginalSessionId: z.string().nullable(),
       filename: z.string(),
+      fileCreatedAt: z.string().datetime({ offset: true }), // File creation date as fallback for timestamps
       entries: z.array(
         z.object({
           originalUuid: z.string().uuid().nullable(),

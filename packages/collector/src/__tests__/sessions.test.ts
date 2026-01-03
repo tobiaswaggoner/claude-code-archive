@@ -15,6 +15,13 @@ vi.mock("node:fs/promises");
 
 const mockListProjects = vi.mocked(parser.listProjects);
 const mockReadFile = vi.mocked(fsPromises.readFile);
+const mockStat = vi.mocked(fsPromises.stat);
+
+// Default mock stat result
+const mockStatResult = {
+  birthtime: new Date("2024-01-15T09:00:00Z"),
+  mtime: new Date("2024-01-15T10:00:00Z"),
+} as fsPromises.Stats;
 
 describe("discoverWorkspaces", () => {
   beforeEach(() => {
@@ -74,6 +81,8 @@ describe("discoverWorkspaces", () => {
 describe("buildSyncSession", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // Default stat mock for all buildSyncSession tests
+    mockStat.mockResolvedValue(mockStatResult);
   });
 
   describe("with no known state (full sync)", () => {
@@ -603,6 +612,8 @@ describe("loadToolResultsForSession", () => {
 describe("buildSyncWorkspace", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // Default stat mock for all buildSyncWorkspace tests
+    mockStat.mockResolvedValue(mockStatResult);
   });
 
   it("should build workspace with sessions that have new entries", async () => {
@@ -628,11 +639,15 @@ describe("buildSyncWorkspace", () => {
       ],
     };
 
-    // Session 1 has new entries
+    // extractCwdFromSession reads session 1 first to get cwd
     mockReadFile.mockResolvedValueOnce(
-      JSON.stringify({ uuid: "uuid-1", type: "user" })
+      JSON.stringify({ uuid: "uuid-1", type: "user", cwd: "/home/user/project" })
     );
-    // Session 2 has no new entries (already synced)
+    // buildSyncSession reads session 1
+    mockReadFile.mockResolvedValueOnce(
+      JSON.stringify({ uuid: "uuid-1", type: "user", cwd: "/home/user/project" })
+    );
+    // buildSyncSession reads session 2 (already synced, no new entries)
     mockReadFile.mockResolvedValueOnce(
       JSON.stringify({ uuid: "uuid-2", type: "user" })
     );
@@ -679,6 +694,11 @@ describe("buildSyncWorkspace", () => {
       ],
     };
 
+    // extractCwdFromSession reads session first
+    mockReadFile.mockResolvedValueOnce(
+      JSON.stringify({ uuid: "uuid-1", type: "user", cwd: "/test" })
+    );
+    // buildSyncSession reads session (already synced)
     mockReadFile.mockResolvedValueOnce(
       JSON.stringify({ uuid: "uuid-1", type: "user" })
     );

@@ -33,11 +33,11 @@ export const session = claudeArchiveSchema.table("session", {
   // Original filename
   filename: text("filename").notNull(),
 
-  // Timestamp of first entry
-  firstEntryAt: timestamp("first_entry_at", { withTimezone: true }),
+  // Timestamp of first entry (required - uses file creation date as fallback)
+  firstEntryAt: timestamp("first_entry_at", { withTimezone: true }).notNull(),
 
-  // Timestamp of last entry
-  lastEntryAt: timestamp("last_entry_at", { withTimezone: true }),
+  // Timestamp of last entry (required - uses file creation date as fallback)
+  lastEntryAt: timestamp("last_entry_at", { withTimezone: true }).notNull(),
 
   // Number of entries
   entryCount: integer("entry_count").default(0),

@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { runSync, type SyncResult } from "../sync/index.js";
+import { runSync, retryConfig, type SyncResult } from "../sync/index.js";
 import type { Config } from "../config.js";
 import type { CliArgs } from "../cli.js";
+
+// Disable retry delays for fast tests
+retryConfig.delayMs = 0;
 
 // =============================================================================
 // Mocks

@@ -129,6 +129,7 @@ export interface SyncSession {
   agentId?: string | null;
   parentOriginalSessionId?: string | null;
   filename: string;
+  fileCreatedAt: string; // ISO timestamp - file creation date as fallback for session timestamps
   entries: SyncEntry[];
   toolResults?: SyncToolResult[];
 }

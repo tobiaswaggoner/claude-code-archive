@@ -4,8 +4,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { hostname } from "node:os";
 import { release, platform } from "node:os";
+import { getEffectiveHostname } from "../utils/hostname.js";
 import type { Config } from "../config.js";
 import type { CliArgs } from "../cli.js";
 import { ApiClient, ApiError } from "../api/client.js";
@@ -42,14 +42,14 @@ export interface SyncResult {
 }
 
 // =============================================================================
-// Constants
+// Constants (exported for testing)
 // =============================================================================
 
-/** Maximum retry attempts for network operations */
-const MAX_RETRIES = 3;
-
-/** Delay between retries in milliseconds */
-const RETRY_DELAY_MS = 1000;
+/** Retry configuration - exported so tests can override */
+export const retryConfig = {
+  maxRetries: 3,
+  delayMs: 1000,
+};
 
 // =============================================================================
 // Helpers
@@ -65,12 +65,9 @@ function sleep(ms: number): Promise<void> {
 /**
  * Retry a function with exponential backoff.
  */
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = MAX_RETRIES,
-  delayMs: number = RETRY_DELAY_MS
-): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   let lastError: Error | undefined;
+  const { maxRetries, delayMs } = retryConfig;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -110,7 +107,7 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
   const client = new ApiClient(config);
   const syncRunId = randomUUID();
   const collectorId = getOrCreateCollectorId();
-  const host = hostname();
+  const host = getEffectiveHostname();
 
   const result: SyncResult = {
     syncRunId,

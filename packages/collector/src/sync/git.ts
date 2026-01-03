@@ -5,7 +5,7 @@
 import { execSync } from "node:child_process";
 import { readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { hostname } from "node:os";
+import { getEffectiveHostname } from "../utils/hostname.js";
 import type { SyncGitRepo, GitBranch, GitCommit } from "../api/types.js";
 
 // Directories to skip during git repo discovery
@@ -497,7 +497,7 @@ export function buildSyncGitRepo(
   commits: GitCommit[]
 ): SyncGitRepo {
   return {
-    host: hostname(),
+    host: getEffectiveHostname(),
     path: info.path,
     upstreamUrl: info.upstreamUrl,
     defaultBranch: info.defaultBranch,

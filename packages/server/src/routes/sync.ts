@@ -354,6 +354,9 @@ export function createSyncRoutes() {
 
           let sessionId: string;
 
+          // Parse fileCreatedAt for use as initial/fallback timestamp
+          const fileCreatedAt = new Date(sess.fileCreatedAt);
+
           if (existingSess) {
             sessionId = existingSess.id;
             stats.sessionsUpdated++;
@@ -365,6 +368,9 @@ export function createSyncRoutes() {
                 originalSessionId: sess.originalSessionId,
                 agentId: sess.agentId,
                 filename: sess.filename,
+                // Use file creation date as initial timestamps (will be updated by aggregates)
+                firstEntryAt: fileCreatedAt,
+                lastEntryAt: fileCreatedAt,
                 syncedAt: now,
               })
               .returning();
@@ -434,8 +440,11 @@ export function createSyncRoutes() {
         }
 
         // Update session aggregates
-        for (const [_, sessionId] of sessionMap) {
-          await updateSessionAggregates(sessionId);
+        for (const sess of ws.sessions) {
+          const sessionId = sessionMap.get(sess.originalSessionId);
+          if (sessionId) {
+            await updateSessionAggregates(sessionId, new Date(sess.fileCreatedAt));
+          }
         }
       }
     }
@@ -446,7 +455,7 @@ export function createSyncRoutes() {
   return app;
 }
 
-async function updateSessionAggregates(sessionId: string) {
+async function updateSessionAggregates(sessionId: string, fileCreatedAt: Date) {
   const entries = await db.select().from(entry).where(eq(entry.sessionId, sessionId));
 
   if (entries.length === 0) return;
@@ -463,27 +472,37 @@ async function updateSessionAggregates(sessionId: string) {
   for (const e of entries) {
     const data = e.data as Record<string, unknown>;
 
-    if (data.model && typeof data.model === "string") {
-      modelsUsed.add(data.model);
+    // Assistant entries have model and usage in message object
+    if (e.type === "assistant" && data.message && typeof data.message === "object") {
+      const message = data.message as Record<string, unknown>;
+
+      if (message.model && typeof message.model === "string") {
+        modelsUsed.add(message.model);
+      }
+
+      if (message.usage && typeof message.usage === "object") {
+        const usage = message.usage as Record<string, number>;
+        totalInputTokens += usage.input_tokens || 0;
+        totalOutputTokens += usage.output_tokens || 0;
+      }
     }
 
-    if (data.usage && typeof data.usage === "object") {
-      const usage = data.usage as Record<string, number>;
-      totalInputTokens += usage.input_tokens || 0;
-      totalOutputTokens += usage.output_tokens || 0;
-    }
-
+    // Summary entries have summary at top level
     if (e.type === "summary" && data.summary && typeof data.summary === "string") {
       summary = data.summary;
     }
   }
 
+  // Use entry timestamps if available, otherwise fall back to file creation date
+  const firstEntryAt = timestamps.length > 0 ? new Date(Math.min(...timestamps)) : fileCreatedAt;
+  const lastEntryAt = timestamps.length > 0 ? new Date(Math.max(...timestamps)) : fileCreatedAt;
+
   await db
     .update(session)
     .set({
       entryCount: entries.length,
-      firstEntryAt: timestamps.length > 0 ? new Date(Math.min(...timestamps)) : null,
-      lastEntryAt: timestamps.length > 0 ? new Date(Math.max(...timestamps)) : null,
+      firstEntryAt,
+      lastEntryAt,
       modelsUsed: modelsUsed.size > 0 ? Array.from(modelsUsed) : null,
       totalInputTokens,
       totalOutputTokens,

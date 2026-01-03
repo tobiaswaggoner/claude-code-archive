@@ -3,9 +3,9 @@
  * Discovers Claude sessions and builds sync payloads for the server.
  */
 
-import { hostname } from "node:os";
 import { join } from "node:path";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+import { getEffectiveHostname } from "../utils/hostname.js";
 import {
   listProjects,
   type ProjectInfo,
@@ -110,7 +110,7 @@ export async function buildSyncWorkspace(
   }
 
   return {
-    host: hostname(),
+    host: getEffectiveHostname(),
     cwd: realCwd || project.originalPath, // Use real cwd if found, fallback to decoded
     claudeProjectPath: project.claudePath,
     sessions,
@@ -136,6 +136,16 @@ export async function buildSyncSession(
 ): Promise<SyncSession | null> {
   const filePath = sessionFile.path;
   const startLine = knownState ? knownState.lastLineNumber + 1 : 1;
+
+  // Get file creation time (birthtime) as fallback for session timestamps
+  let fileCreatedAt: Date;
+  try {
+    const fileStat = await stat(filePath);
+    // Use birthtime if available, otherwise fall back to mtime
+    fileCreatedAt = fileStat.birthtime.getTime() > 0 ? fileStat.birthtime : fileStat.mtime;
+  } catch {
+    return null;
+  }
 
   // Read the entire file
   let content: string;
@@ -172,12 +182,21 @@ export async function buildSyncSession(
 
     try {
       const parsed = JSON.parse(line);
+
+      // Extract timestamp from different entry types
+      // Most entries: data.timestamp
+      // file-history-snapshot: data.snapshot.timestamp
+      let timestamp: string | null = parsed.timestamp || null;
+      if (!timestamp && parsed.type === "file-history-snapshot" && parsed.snapshot?.timestamp) {
+        timestamp = parsed.snapshot.timestamp;
+      }
+
       const entry: SyncEntry = {
         originalUuid: parsed.uuid || null,
         lineNumber,
         type: parsed.type || "unknown",
         subtype: parsed.subtype || null,
-        timestamp: parsed.timestamp || null,
+        timestamp,
         data: parsed,
       };
       entries.push(entry);
@@ -204,6 +223,7 @@ export async function buildSyncSession(
     agentId: sessionFile.agentId || null,
     parentOriginalSessionId,
     filename: `${sessionFile.sessionId}.jsonl`,
+    fileCreatedAt: fileCreatedAt.toISOString(),
     entries,
     toolResults: toolResults.length > 0 ? toolResults : undefined,
   };

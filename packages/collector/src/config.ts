@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { hostname } from "node:os";
+import { getEffectiveHostname } from "./utils/hostname.js";
 
 const configSchema = z.object({
   serverUrl: z.string().url(),
   apiKey: z.string().min(1),
-  collectorName: z.string().default(() => hostname()),
+  collectorName: z.string().default(() => getEffectiveHostname()),
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
