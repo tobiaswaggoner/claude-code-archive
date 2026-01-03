@@ -2,9 +2,24 @@
 
 ## History
 
+### 2026-01-03 16:00 - Server Package Implementation
+
+- Created `@claude-archive/server` package with Hono API
+- Drizzle ORM with all 10 tables from schema
+- OpenAPI documentation with Scalar UI (API key input supported)
+- API Key authentication middleware (public: docs, health, openapi.json)
+- Collector endpoints: register, heartbeat, sync, logs
+- Project/Session/Entry read endpoints
+- Database migrations created and applied
+- 29 unit tests passing
+
+**PostgreSQL Setup:**
+- Schema `claude_archive` on minix-k3s (192.168.178.202)
+- User: `claude_archive`, DB: `hiddenstories_development`
+
 ### 2026-01-03 14:30 - Database Schema Design
 
-- Designed 8-table PostgreSQL schema (`docs/db-schema.md`)
+- Designed 10-table PostgreSQL schema (`docs/db-schema.md`)
 - Central entity: Project (Git AND/OR Claude)
 - GitRepo with dirty_snapshot for uncommitted changes tracking
 - GitBranch per GitRepo (not project-wide) for unpushed branch tracking
@@ -33,17 +48,16 @@
 
 ## Next Steps
 
-### Step 1: Server Package (`packages/server`)
+### ~~Step 1: Server Package (`packages/server`)~~ DONE
 
-Create API server with PostgreSQL backend:
-
-- [ ] Database migrations (Drizzle ORM)
-- [ ] Connect to PostgreSQL on `minix-k8s` (Tailscale, namespace `development`)
-- [ ] Create `claude_archive` schema
-- [ ] Implement all 8 tables from `docs/db-schema.md`
-- [ ] Hono API routes
-- [ ] Endpoints: projects, sessions, entries, search
-- [ ] Git metadata endpoints
+- [x] Database migrations (Drizzle ORM)
+- [x] Connect to PostgreSQL on `minix-k3s`
+- [x] Create `claude_archive` schema
+- [x] Implement all 10 tables from `docs/db-schema.md`
+- [x] Hono API routes with OpenAPI
+- [x] Collector sync endpoints
+- [x] Project/Session/Entry read endpoints
+- [x] Unit tests
 
 ### Step 2: Collector Package (`packages/collector`)
 
@@ -78,16 +92,21 @@ NextJS dashboard:
 ## Development Environment
 
 **PostgreSQL:**
-- Host: `minix-k8s` (Tailscale)
-- Namespace: `development`
-- Credentials: via `kubectl get secret`
+- Host: `minix-k3s` via LoadBalancer (192.168.178.202:5432)
+- Database: `hiddenstories_development`
+- Schema: `claude_archive`
+- User: `claude_archive`
 
 ```bash
-# Check postgres pod
-kubectl get pods -n development
+# Connect directly
+PGPASSWORD=claude_archive_dev_pass psql -h 192.168.178.202 -U claude_archive -d hiddenstories_development
 
-# Get credentials
-kubectl get secret -n development postgres-credentials -o jsonpath='{.data.password}' | base64 -d
+# Run server
+cd packages/server
+pnpm dev
+
+# API docs
+http://localhost:4001/api/docs
 ```
 
 ---

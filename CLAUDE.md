@@ -15,7 +15,7 @@ packages/
 
 ## Key Files
 
-- `docs/db-schema.md` - Database schema (8 tables)
+- `docs/db-schema.md` - Database schema (10 tables)
 - `docs/jsonl-reference.md` - JSONL format documentation with TypeScript types
 - `docs/status.md` - Project history and next steps
 - `docs/idea.md` - Original requirements (German)
@@ -37,15 +37,44 @@ console.log(result.entries);  // Typed Entry[]
 const full = await parseFullSession(projectDir, sessionId);
 ```
 
+## Server
+
+Hono API with OpenAPI documentation (Scalar UI).
+
+```bash
+# Development
+cd packages/server
+pnpm dev          # Runs on PORT from .env (default 4001)
+
+# API Docs
+http://localhost:4001/api/docs
+
+# Database migrations
+pnpm db:generate  # Generate migration from schema
+pnpm db:migrate   # Apply migrations
+```
+
+**Authentication:** `X-API-Key` header required. Public endpoints: `/api/docs`, `/api/openapi.json`, `/api/health`.
+
+**API Endpoints:**
+- `GET /health`, `/api/health` - Health check (no auth)
+- `GET /api/docs` - Scalar API documentation (no auth)
+- `POST /api/collectors/register` - Register collector
+- `POST /api/collectors/{id}/heartbeat` - Collector heartbeat
+- `POST /api/collectors/{id}/sync` - Sync data from collector
+- `GET /api/projects` - List projects
+- `GET /api/sessions` - List sessions
+- `GET /api/entries/{id}` - Get entry
+
 ## Database
 
-PostgreSQL with JSONB. See `docs/db-schema.md` for full schema.
+PostgreSQL with JSONB. See `docs/db-schema.md` for full schema (10 tables).
 
 ```
-DATABASE_URL=postgresql://user:pass@host:5432/claude_archive
+DATABASE_URL=postgresql://claude_archive:password@192.168.178.202:5432/hiddenstories_development
 ```
 
-**Local Development:** PostgreSQL on `minix-k8s` (Tailscale), namespace `development`.
+**Local Development:** PostgreSQL on `minix-k3s` (192.168.178.202), namespace `development`, schema `claude_archive`.
 
 ## Development
 
@@ -53,4 +82,5 @@ DATABASE_URL=postgresql://user:pass@host:5432/claude_archive
 pnpm install
 pnpm build        # Build all packages
 pnpm -r dev       # Watch mode
+pnpm test:unit    # Run unit tests
 ```
