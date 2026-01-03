@@ -2,17 +2,85 @@
 
 ## History
 
-### 2026-01-03 18:00 - Collector Package Implementation
+### 2026-01-03 18:00 - Standalone Collector Bundle
+
+Added standalone bundle for easy deployment without npm:
+
+- esbuild bundle script (`pnpm bundle`) creates 87 KB standalone CJS file
+- GitHub Actions workflow for automatic releases on `collector-v*` tags
+- Install script for curl-based deployment
+
+**Files:**
+- `packages/collector/scripts/bundle.mjs` - Bundle script
+- `.github/workflows/release-collector.yml` - Release workflow
+- `packages/collector/scripts/install.sh` - Install script
+
+**Usage:**
+```bash
+# Download
+curl -fsSL https://github.com/ORG/REPO/releases/latest/download/collector-latest.cjs -o collector.cjs
+
+# Cron job (every 5 min)
+*/5 * * * * CLAUDE_ARCHIVE_SERVER_URL=url CLAUDE_ARCHIVE_API_KEY=key node collector.cjs sync
+```
+
+### 2026-01-03 17:45 - Sync State API Optimization
+
+Consolidated N+M delta-sync API calls into single call:
+
+**Before:** Per-repo and per-workspace calls
+- `GET /api/collectors/{id}/session-state?host=X&cwd=Y` (per workspace)
+- `GET /api/collectors/{id}/commit-state?host=X&path=Y` (per repo)
+
+**After:** Single call for all state
+- `GET /api/collectors/{id}/sync-state?host=X`
+- Returns: `{ gitRepos: { path: [shas] }, workspaces: { cwd: [sessions] } }`
+
+Removed deprecated endpoints and tests. 163 tests passing (32 server + 131 collector).
+
+### 2026-01-03 17:15 - Multi-Host Sync & Idempotency
+
+Successfully synced from both WSL and Windows collectors. Fixed several issues to achieve reliable delta sync:
+
+**Batch Sync (Payload Size):**
+- Git repos sent in batches of 10
+- Workspaces sent individually
+- Sessions chunked to max 50 per request (`SESSION_BATCH_SIZE`)
+- Prevents "Invalid string length" and heap overflow errors
+
+**Delta Sync Fixes:**
+- Changed commit-state lookup from `upstreamUrl` to `(host, path)` - more reliable
+- Extract real `cwd` from JSONL files before session-state lookup (fixes Windows path issues)
+- Added UNIQUE constraints: `session(workspace_id, original_session_id)`, `entry(session_id, line_number)`
+
+**Data Sanitization:**
+- DateTime normalization for Git commits (`Date.parse()` → `toISOString()`)
+- Null byte removal for PostgreSQL JSONB (`\u0000` not supported)
+
+**Verified Status (after 2 sync runs):**
+| Table | Count |
+|-------|-------|
+| collector | 2 |
+| project | 173 |
+| workspace | 83 |
+| session | 1,642 |
+| entry | 70,948 |
+| git_repo | 140 |
+| git_branch | 26 |
+| git_commit | 11,237 |
+
+**Idempotency confirmed:** Second sync run produced 0 new entries/commits.
+
+### 2026-01-03 17:30 - Collector Package Implementation
 
 - Created `@claude-archive/collector` CLI package
 - Git repository discovery with recursive search
 - Branch tracking with ahead/behind counts
 - Delta sync: queries server for known entries/commits before syncing
 - Tool results synchronization (text and binary)
-- Server endpoints for delta detection:
-  - `GET /api/collectors/{id}/session-state`
-  - `GET /api/collectors/{id}/commit-state`
-- 168 total unit tests (36 server + 132 collector)
+- Server endpoint for delta detection:
+  - `GET /api/collectors/{id}/sync-state`
+- 163 total unit tests (32 server + 131 collector)
 
 **Usage:**
 ```bash

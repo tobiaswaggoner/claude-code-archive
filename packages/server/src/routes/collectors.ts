@@ -19,9 +19,7 @@ import {
   runLogCreateSchema,
   runLogSchema,
   errorSchema,
-  paginatedResponseSchema,
-  sessionStateResponseSchema,
-  commitStateResponseSchema,
+  syncStateResponseSchema,
 } from "./schemas.js";
 
 // Routes
@@ -171,46 +169,23 @@ const getLogsRoute = createRoute({
   },
 });
 
-const sessionStateRoute = createRoute({
+const syncStateRoute = createRoute({
   method: "get",
-  path: "/collectors/{id}/session-state",
+  path: "/collectors/{id}/sync-state",
   tags: ["collectors"],
-  summary: "Get session state for a workspace",
+  summary: "Get complete sync state for a host",
   description:
-    "Returns sessions with entry counts for a specific workspace, used for delta sync",
-  request: {
-    params: z.object({ id: z.string().uuid() }),
-    query: z.object({
-      host: z.string().min(1).openapi({ description: "Hostname" }),
-      cwd: z.string().min(1).openapi({ description: "Working directory path" }),
-    }),
-  },
-  responses: {
-    200: {
-      description: "Session state for the workspace",
-      content: { "application/json": { schema: sessionStateResponseSchema } },
-    },
-  },
-});
-
-const commitStateRoute = createRoute({
-  method: "get",
-  path: "/collectors/{id}/commit-state",
-  tags: ["collectors"],
-  summary: "Get known commit SHAs for a git repo",
-  description:
-    "Returns all known commit SHAs for a git repo by host and path, used for delta sync",
+    "Returns all known git repo commits and workspace session states for a host in a single call. More efficient than calling session-state and commit-state separately for each repo/workspace.",
   request: {
     params: z.object({ id: z.string().uuid() }),
     query: z.object({
       host: z.string().min(1).openapi({ description: "Hostname of the machine" }),
-      path: z.string().min(1).openapi({ description: "Absolute path to the git repo" }),
     }),
   },
   responses: {
     200: {
-      description: "Known commit SHAs for the git repo",
-      content: { "application/json": { schema: commitStateResponseSchema } },
+      description: "Complete sync state for the host",
+      content: { "application/json": { schema: syncStateResponseSchema } },
     },
   },
 });
@@ -353,93 +328,87 @@ export function createCollectorRoutes() {
     return c.json({ items: results.map(formatRunLog) }, 200);
   });
 
-  // Get session state for a workspace
-  app.openapi(sessionStateRoute, async (c) => {
-    const { host, cwd } = c.req.valid("query");
+  // Get complete sync state for a host (combined git repos + workspaces)
+  app.openapi(syncStateRoute, async (c) => {
+    const { host } = c.req.valid("query");
 
-    console.log(`[session-state] Looking up workspace: host="${host}", cwd="${cwd}"`);
+    console.log(`[sync-state] Getting complete state for host="${host}"`);
 
-    // Find workspace by host + cwd
-    const [ws] = await db
-      .select()
-      .from(workspace)
-      .where(and(eq(workspace.host, host), eq(workspace.cwd, cwd)));
+    // Build result object
+    const result: {
+      gitRepos: Record<string, string[]>;
+      workspaces: Record<string, { originalSessionId: string; entryCount: number; lastLineNumber: number }[]>;
+    } = {
+      gitRepos: {},
+      workspaces: {},
+    };
 
-    if (!ws) {
-      // Return empty array if workspace not found
-      console.log(`[session-state] Workspace NOT FOUND - returning empty sessions`);
-      return c.json({ sessions: [] }, 200);
-    }
-
-    console.log(`[session-state] Found workspace id=${ws.id}`);
-
-    // Get sessions with entry counts and max line numbers
-    const sessions = await db
-      .select({
-        originalSessionId: session.originalSessionId,
-        entryCount: session.entryCount,
-      })
-      .from(session)
-      .where(eq(session.workspaceId, ws.id));
-
-    console.log(`[session-state] Found ${sessions.length} sessions in DB`);
-
-    // For each session, get the max line number from entries
-    const result = await Promise.all(
-      sessions.map(async (sess) => {
-        const [maxLine] = await db
-          .select({ maxLineNumber: max(entry.lineNumber) })
-          .from(entry)
-          .innerJoin(session, eq(entry.sessionId, session.id))
-          .where(
-            and(
-              eq(session.workspaceId, ws.id),
-              eq(session.originalSessionId, sess.originalSessionId)
-            )
-          );
-
-        return {
-          originalSessionId: sess.originalSessionId,
-          entryCount: sess.entryCount ?? 0,
-          lastLineNumber: maxLine?.maxLineNumber ?? 0,
-        };
-      })
-    );
-
-    console.log(`[session-state] Returning ${result.length} sessions, sample:`,
-      result.slice(0, 3).map(s => `${s.originalSessionId}: ${s.lastLineNumber} lines`));
-
-    return c.json({ sessions: result }, 200);
-  });
-
-  // Get known commit SHAs for a git repo
-  app.openapi(commitStateRoute, async (c) => {
-    const { host, path } = c.req.valid("query");
-
-    console.log(`[commit-state] Looking up git_repo for host="${host}", path="${path}"`);
-
-    // Find git_repo by host + path
-    const [repo] = await db
-      .select()
+    // Get all git repos for this host
+    const repos = await db
+      .select({ id: gitRepo.id, path: gitRepo.path, projectId: gitRepo.projectId })
       .from(gitRepo)
-      .where(and(eq(gitRepo.host, host), eq(gitRepo.path, path)));
+      .where(eq(gitRepo.host, host));
 
-    if (!repo) {
-      console.log(`[commit-state] Git repo NOT FOUND`);
-      return c.json({ knownShas: [] }, 200);
+    console.log(`[sync-state] Found ${repos.length} git repos for host`);
+
+    // For each repo, get all commit SHAs
+    for (const repo of repos) {
+      const commits = await db
+        .select({ sha: gitCommit.sha })
+        .from(gitCommit)
+        .where(eq(gitCommit.projectId, repo.projectId));
+
+      result.gitRepos[repo.path] = commits.map((c) => c.sha);
     }
 
-    console.log(`[commit-state] Found git_repo id=${repo.id}, project_id=${repo.projectId}`);
+    // Get all workspaces for this host
+    const workspaces = await db
+      .select({ id: workspace.id, cwd: workspace.cwd })
+      .from(workspace)
+      .where(eq(workspace.host, host));
 
-    // Get all commit SHAs for this project
-    const commits = await db
-      .select({ sha: gitCommit.sha })
-      .from(gitCommit)
-      .where(eq(gitCommit.projectId, repo.projectId));
+    console.log(`[sync-state] Found ${workspaces.length} workspaces for host`);
 
-    console.log(`[commit-state] Returning ${commits.length} known SHAs`);
+    // For each workspace, get all sessions with their state
+    for (const ws of workspaces) {
+      const sessions = await db
+        .select({
+          originalSessionId: session.originalSessionId,
+          entryCount: session.entryCount,
+        })
+        .from(session)
+        .where(eq(session.workspaceId, ws.id));
 
-    return c.json({ knownShas: commits.map((c) => c.sha) }, 200);
+      // For each session, get the max line number from entries
+      const sessionStates = await Promise.all(
+        sessions.map(async (sess) => {
+          const [maxLine] = await db
+            .select({ maxLineNumber: max(entry.lineNumber) })
+            .from(entry)
+            .innerJoin(session, eq(entry.sessionId, session.id))
+            .where(
+              and(
+                eq(session.workspaceId, ws.id),
+                eq(session.originalSessionId, sess.originalSessionId)
+              )
+            );
+
+          return {
+            originalSessionId: sess.originalSessionId,
+            entryCount: sess.entryCount ?? 0,
+            lastLineNumber: maxLine?.maxLineNumber ?? 0,
+          };
+        })
+      );
+
+      result.workspaces[ws.cwd] = sessionStates;
+    }
+
+    const totalSessions = Object.values(result.workspaces).reduce((sum, ws) => sum + ws.length, 0);
+    const totalCommits = Object.values(result.gitRepos).reduce((sum, shas) => sum + shas.length, 0);
+    console.log(`[sync-state] Returning state: ${repos.length} repos (${totalCommits} commits), ${workspaces.length} workspaces (${totalSessions} sessions)`);
+
+    return c.json(result, 200);
   });
 
   return app;

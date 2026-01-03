@@ -8,8 +8,7 @@ import type {
   RegisterRequest,
   RegisterResponse,
   HeartbeatRequest,
-  SessionStateResponse,
-  CommitStateResponse,
+  SyncStateResponse,
   SyncRequest,
   SyncResponse,
   LogEntry,
@@ -142,37 +141,18 @@ export class ApiClient {
   }
 
   /**
-   * Get the current session state for a workspace.
-   * Used for delta sync to determine which entries have already been synced.
+   * Get the complete sync state for a host in a single API call.
+   * Returns all known git repo commits and workspace session states.
    */
-  async getSessionState(
+  async getSyncState(
     collectorId: string,
-    host: string,
-    cwd: string
-  ): Promise<SessionStateResponse> {
-    return this.request<SessionStateResponse>(
+    host: string
+  ): Promise<SyncStateResponse> {
+    return this.request<SyncStateResponse>(
       "GET",
-      `/api/collectors/${collectorId}/session-state`,
+      `/api/collectors/${collectorId}/sync-state`,
       {
-        query: { host, cwd },
-      }
-    );
-  }
-
-  /**
-   * Get the known commit SHAs for a git repository.
-   * Used for delta sync to determine which commits have already been synced.
-   */
-  async getCommitState(
-    collectorId: string,
-    host: string,
-    path: string
-  ): Promise<CommitStateResponse> {
-    return this.request<CommitStateResponse>(
-      "GET",
-      `/api/collectors/${collectorId}/commit-state`,
-      {
-        query: { host, path },
+        query: { host },
       }
     );
   }

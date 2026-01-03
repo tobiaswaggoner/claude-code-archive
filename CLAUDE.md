@@ -65,8 +65,7 @@ pnpm db:migrate   # Apply migrations
 - `GET /api/projects` - List projects
 - `GET /api/sessions` - List sessions
 - `GET /api/entries/{id}` - Get entry
-- `GET /api/collectors/{id}/session-state` - Session state for delta sync
-- `GET /api/collectors/{id}/commit-state` - Commit state for delta sync
+- `GET /api/collectors/{id}/sync-state` - Combined state for delta sync (git repos + workspaces)
 
 ## Collector
 

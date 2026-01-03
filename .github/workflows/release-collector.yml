@@ -1,0 +1,104 @@
+name: Release Collector
+
+on:
+  push:
+    tags:
+      - 'collector-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Bundle collector
+        run: pnpm --filter @claude-archive/collector bundle
+
+      - name: Get version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/collector-v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rename bundle with version
+        run: |
+          cp packages/collector/dist/collector-standalone.cjs collector-${{ steps.version.outputs.version }}.cjs
+          cp packages/collector/dist/collector-standalone.cjs collector-latest.cjs
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: collector-v${{ steps.version.outputs.version }}
+          name: Collector v${{ steps.version.outputs.version }}
+          body: |
+            ## Claude Archive Collector v${{ steps.version.outputs.version }}
+
+            Standalone Node.js bundle for syncing Claude Code sessions.
+
+            ### Installation
+
+            ```bash
+            # Download latest
+            curl -fsSL https://github.com/${{ github.repository }}/releases/latest/download/collector-latest.cjs -o collector.cjs
+
+            # Or specific version
+            curl -fsSL https://github.com/${{ github.repository }}/releases/download/collector-v${{ steps.version.outputs.version }}/collector-${{ steps.version.outputs.version }}.cjs -o collector.cjs
+
+            # Make executable (optional)
+            chmod +x collector.cjs
+            ```
+
+            ### Usage
+
+            ```bash
+            # Set environment variables
+            export CLAUDE_ARCHIVE_SERVER_URL=https://your-server.com
+            export CLAUDE_ARCHIVE_API_KEY=your-api-key
+
+            # Run sync
+            node collector.cjs sync
+
+            # With git repos
+            node collector.cjs sync --source-dir=/path/to/repos
+            ```
+
+            ### Cron Job Example
+
+            ```bash
+            */5 * * * * CLAUDE_ARCHIVE_SERVER_URL=https://server CLAUDE_ARCHIVE_API_KEY=key /usr/bin/node /opt/collector.cjs sync >> /var/log/collector.log 2>&1
+            ```
+          files: |
+            collector-${{ steps.version.outputs.version }}.cjs
+            collector-latest.cjs
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
