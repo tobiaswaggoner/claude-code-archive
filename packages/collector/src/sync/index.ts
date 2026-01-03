@@ -208,8 +208,9 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
           const branches = await extractBranches(repo.path);
           const commits = await extractCommits(repo.path, knownShas);
 
-          // Only include repos that have changes
-          if (branches.length > 0 || commits.length > 0 || repo.isDirty) {
+          // Only include repos that have NEW commits to sync
+          // (branches are always present, so we can't use that as a change indicator)
+          if (commits.length > 0) {
             const syncRepo = buildSyncGitRepo(repo, branches, commits);
             gitRepos.push(syncRepo);
             result.gitReposSynced++;
@@ -217,6 +218,8 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
             logger.debug(
               `Repo ${repo.path}: ${branches.length} branches, ${commits.length} new commits`
             );
+          } else {
+            logger.debug(`Repo ${repo.path}: no new commits, skipping`);
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
