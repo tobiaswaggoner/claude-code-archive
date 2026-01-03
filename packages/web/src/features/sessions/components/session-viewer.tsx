@@ -3,6 +3,7 @@
 import { useSession, useSessionEntriesInfinite } from "../hooks/use-sessions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/markdown";
 import {
   MessageSquare,
   Bot,
@@ -249,15 +250,13 @@ function EntryCard({ entry }: EntryCardProps) {
         )}
       </div>
 
-      <div className="text-sm whitespace-pre-wrap break-words">
+      <div className="text-sm break-words">
         {isToolUse || isToolResult ? (
-          <pre className="bg-muted/50 rounded p-2 overflow-x-auto text-xs font-mono">
+          <pre className="bg-muted/50 rounded p-2 overflow-x-auto text-xs font-mono whitespace-pre-wrap">
             {getContent()}
           </pre>
         ) : (
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            {getContent()}
-          </div>
+          <Markdown>{getContent()}</Markdown>
         )}
       </div>
     </div>
