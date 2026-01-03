@@ -1,10 +1,23 @@
 # Database Schema
 
-> 8 Tabellen: Project, GitRepo, GitBranch, GitCommit, Workspace, Session, Entry, ToolResult
+> 10 Tabellen: Collector, RunLog, Project, GitRepo, GitBranch, GitCommit, Workspace, Session, Entry, ToolResult
 
 ## Übersicht
 
 ```
+┌─────────────────┐
+│    Collector    │  ← Registrierte Sync-Instanzen (5-6 pro Setup)
+│  (pro Host/WSL) │
+└─────────────────┘
+        │
+        │ 1
+        ▼ n
+┌─────────────────┐
+│     RunLog      │  ← Log-Einträge pro Sync-Run
+│ (Sync-Logging)  │
+└─────────────────┘
+
+
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              Project                                     │
 │                    (Zentrales Entity: Git UND/ODER Claude)               │
@@ -38,11 +51,67 @@
                                             └─────────────┘
 ```
 
-**8 Tabellen:** Project, GitRepo, GitBranch, GitCommit, Workspace, Session, Entry, ToolResult
+**10 Tabellen:** Collector, RunLog, Project, GitRepo, GitBranch, GitCommit, Workspace, Session, Entry, ToolResult
 
 ---
 
 ## Tabellen
+
+### Collector
+
+Registrierte Sync-Instanzen. Jeder Collector (pro Host/WSL) generiert beim ersten Start eine UUID und registriert sich am Server.
+
+| Column | Type | Constraints | Beschreibung |
+|--------|------|-------------|--------------|
+| id | UUID | PK | Vom Collector beim Start generiert, lokal persistiert |
+| name | TEXT | NOT NULL | Anzeigename (z.B. "desktop-wsl-ubuntu") |
+| hostname | TEXT | NOT NULL | OS Hostname |
+| os_info | TEXT | NULL | OS Details (z.B. "Ubuntu 22.04 WSL2") |
+| version | TEXT | NULL | Collector-Version |
+| config | JSONB | NULL | Aktive Konfiguration (search_paths, etc.) |
+| registered_at | TIMESTAMP | NOT NULL | Erste Registrierung |
+| last_seen_at | TIMESTAMP | NOT NULL | Letzter Heartbeat/Sync |
+| last_sync_run_id | UUID | NULL | Letzte Sync-Run ID |
+| last_sync_status | TEXT | NULL | success, error, partial |
+| is_active | BOOLEAN | DEFAULT true | Manuell deaktiviert? |
+
+**Unique:** `(hostname)` - Ein Collector pro Host
+
+**Lifecycle:**
+1. Collector startet → prüft lokale `~/.claude-archive/collector.json`
+2. Wenn keine ID → neue UUID generieren, am Server registrieren
+3. Wenn ID vorhanden → beim Server anmelden (last_seen_at updaten)
+4. Bei jedem Sync → Heartbeat senden
+
+---
+
+### RunLog
+
+Log-Einträge für Sync-Runs. Ermöglicht Debugging und Monitoring.
+
+| Column | Type | Constraints | Beschreibung |
+|--------|------|-------------|--------------|
+| id | UUID | PK | |
+| collector_id | UUID | FK → Collector | |
+| sync_run_id | UUID | NOT NULL | Gruppiert Logs eines Runs |
+| timestamp | TIMESTAMP | NOT NULL | Log-Zeitpunkt |
+| level | TEXT | NOT NULL | debug, info, warn, error |
+| message | TEXT | NOT NULL | Log-Nachricht |
+| context | JSONB | NULL | Zusätzliche Daten (file, count, duration, etc.) |
+
+**Indizes:**
+- `(collector_id, sync_run_id)` - Logs eines Runs
+- `(collector_id, timestamp)` - Zeitliche Suche
+- `(level)` - Filterung nach Level
+
+**Sync-Run:**
+- Keine eigene Tabelle, nur UUID als Gruppierung
+- Start: `{sync_run_id, level: "info", message: "Sync started"}`
+- Ende: `{sync_run_id, level: "info", message: "Sync completed", context: {duration_ms, entries_synced, ...}}`
+
+**Retention:** Logs älter als X Tage können gelöscht werden (konfigurierbar).
+
+---
 
 ### Project
 
@@ -295,6 +364,7 @@ Große Tool-Outputs (Screenshots, lange Texte). Entspricht den `tool-results/` D
 ## Beziehungen
 
 ```
+Collector  1 ──── n  RunLog           "Logs pro Collector"
 Project    1 ──── n  GitRepo          "Checkouts auf verschiedenen Hosts"
 Project    1 ──── n  GitCommit        "Komplette Git-Historie"
 Project    1 ──── n  Workspace        "Claude-Projekte auf verschiedenen Hosts"
@@ -305,6 +375,8 @@ Session    1 ──── n  Session          "Haupt → Agents (self-ref)"
 Session    1 ──── n  Entry            "Entries pro Session"
 Entry      1 ──── n  ToolResult       "Große Tool-Outputs"
 ```
+
+**Hinweis:** Collector hat keine direkte FK-Beziehung zu GitRepo/Workspace. Die Zuordnung erfolgt implizit über `hostname` (Collector.hostname = GitRepo.host = Workspace.host).
 
 ---
 
@@ -456,6 +528,10 @@ git_ignore_patterns:
 | Redundante Felder | `is_agent`, `is_pushed` als Computed, nicht gespeichert |
 | IDs | Eigene UUIDs generieren, Original-IDs separat speichern |
 | upstream_url | Bei Insert normalisieren (Protokoll, .git entfernen) |
+| Collector-ID | Vom Collector generiert, lokal in `~/.claude-archive/collector.json` |
+| Sync-Run | Keine eigene Tabelle, UUID als Gruppierung in RunLog |
+| RunLog Retention | Konfigurierbar, alte Logs können gelöscht werden |
+| DB Migrations | Drizzle ORM mit versionierten Migrations |
 
 ---
 
