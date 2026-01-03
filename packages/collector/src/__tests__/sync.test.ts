@@ -15,8 +15,9 @@ vi.mock("../api/client.js", () => {
   const mockClient = {
     register: vi.fn(),
     heartbeat: vi.fn(),
-    getSessionState: vi.fn(),
-    getCommitState: vi.fn(),
+    getSessionState: vi.fn(), // deprecated
+    getCommitState: vi.fn(), // deprecated
+    getSyncState: vi.fn(),
     sync: vi.fn(),
   };
 
@@ -53,6 +54,7 @@ vi.mock("../sync/git.js", () => ({
 vi.mock("../sync/sessions.js", () => ({
   discoverWorkspaces: vi.fn(),
   buildSyncWorkspace: vi.fn(),
+  extractCwdFromSession: vi.fn().mockResolvedValue(null),
 }));
 
 // Import mocks after they're defined
@@ -97,8 +99,9 @@ describe("runSync", () => {
     mockClient = vi.mocked(ApiClient).mock.results[0]?.value || {
       register: vi.fn(),
       heartbeat: vi.fn(),
-      getSessionState: vi.fn(),
-      getCommitState: vi.fn(),
+      getSessionState: vi.fn(), // deprecated
+      getCommitState: vi.fn(), // deprecated
+      getSyncState: vi.fn(),
       sync: vi.fn(),
     };
 
@@ -118,6 +121,9 @@ describe("runSync", () => {
     });
 
     vi.mocked(mockClient.heartbeat).mockResolvedValue(undefined);
+    // New unified sync state endpoint
+    vi.mocked(mockClient.getSyncState).mockResolvedValue({ gitRepos: {}, workspaces: {} });
+    // Deprecated endpoints (kept for backwards compatibility)
     vi.mocked(mockClient.getSessionState).mockResolvedValue({ sessions: [] });
     vi.mocked(mockClient.getCommitState).mockResolvedValue({ knownShas: [] });
     vi.mocked(mockClient.sync).mockResolvedValue({
@@ -177,6 +183,7 @@ describe("runSync", () => {
       const failingClient = {
         register: vi.fn().mockRejectedValue(new Error("Connection refused")),
         heartbeat: vi.fn().mockResolvedValue(undefined),
+        getSyncState: vi.fn().mockResolvedValue({ gitRepos: {}, workspaces: {} }),
         getSessionState: vi.fn().mockResolvedValue({ sessions: [] }),
         getCommitState: vi.fn().mockResolvedValue({ knownShas: [] }),
         sync: vi.fn().mockResolvedValue({
@@ -504,6 +511,7 @@ describe("runSync", () => {
           isActive: true,
         }),
         heartbeat: vi.fn().mockResolvedValue(undefined),
+        getSyncState: vi.fn().mockResolvedValue({ gitRepos: {}, workspaces: {} }),
         getSessionState: vi.fn().mockResolvedValue({ sessions: [] }),
         getCommitState: vi.fn().mockResolvedValue({ knownShas: [] }),
         sync: vi.fn().mockResolvedValue({
@@ -549,6 +557,7 @@ describe("runSync", () => {
           isActive: true,
         }),
         heartbeat: vi.fn().mockResolvedValue(undefined),
+        getSyncState: vi.fn().mockResolvedValue({ gitRepos: {}, workspaces: {} }),
         getSessionState: vi.fn().mockResolvedValue({ sessions: [] }),
         getCommitState: vi.fn().mockResolvedValue({ knownShas: [] }),
         sync: vi.fn(),
@@ -611,6 +620,7 @@ describe("runSync", () => {
           isActive: true,
         }),
         heartbeat: vi.fn().mockResolvedValue(undefined),
+        getSyncState: vi.fn().mockResolvedValue({ gitRepos: {}, workspaces: {} }),
         getSessionState: vi.fn().mockResolvedValue({ sessions: [] }),
         getCommitState: vi.fn().mockResolvedValue({ knownShas: [] }),
         sync: vi.fn().mockRejectedValue(new Error("Server error")),
@@ -670,6 +680,7 @@ describe("runSync", () => {
       const dryRunClient = {
         register: vi.fn(),
         heartbeat: vi.fn(),
+        getSyncState: vi.fn(),
         getSessionState: vi.fn(),
         getCommitState: vi.fn(),
         sync: vi.fn(),

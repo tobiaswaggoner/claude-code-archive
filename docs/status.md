@@ -2,6 +2,39 @@
 
 ## History
 
+### 2026-01-03 17:15 - Multi-Host Sync & Idempotency
+
+Successfully synced from both WSL and Windows collectors. Fixed several issues to achieve reliable delta sync:
+
+**Batch Sync (Payload Size):**
+- Git repos sent in batches of 10
+- Workspaces sent individually
+- Sessions chunked to max 50 per request (`SESSION_BATCH_SIZE`)
+- Prevents "Invalid string length" and heap overflow errors
+
+**Delta Sync Fixes:**
+- Changed commit-state lookup from `upstreamUrl` to `(host, path)` - more reliable
+- Extract real `cwd` from JSONL files before session-state lookup (fixes Windows path issues)
+- Added UNIQUE constraints: `session(workspace_id, original_session_id)`, `entry(session_id, line_number)`
+
+**Data Sanitization:**
+- DateTime normalization for Git commits (`Date.parse()` → `toISOString()`)
+- Null byte removal for PostgreSQL JSONB (`\u0000` not supported)
+
+**Verified Status (after 2 sync runs):**
+| Table | Count |
+|-------|-------|
+| collector | 2 |
+| project | 173 |
+| workspace | 83 |
+| session | 1,642 |
+| entry | 70,948 |
+| git_repo | 140 |
+| git_branch | 26 |
+| git_commit | 11,237 |
+
+**Idempotency confirmed:** Second sync run produced 0 new entries/commits.
+
 ### 2026-01-03 18:00 - Collector Package Implementation
 
 - Created `@claude-archive/collector` CLI package

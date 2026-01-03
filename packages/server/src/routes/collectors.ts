@@ -22,6 +22,7 @@ import {
   paginatedResponseSchema,
   sessionStateResponseSchema,
   commitStateResponseSchema,
+  syncStateResponseSchema,
 } from "./schemas.js";
 
 // Routes
@@ -211,6 +212,27 @@ const commitStateRoute = createRoute({
     200: {
       description: "Known commit SHAs for the git repo",
       content: { "application/json": { schema: commitStateResponseSchema } },
+    },
+  },
+});
+
+const syncStateRoute = createRoute({
+  method: "get",
+  path: "/collectors/{id}/sync-state",
+  tags: ["collectors"],
+  summary: "Get complete sync state for a host",
+  description:
+    "Returns all known git repo commits and workspace session states for a host in a single call. More efficient than calling session-state and commit-state separately for each repo/workspace.",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    query: z.object({
+      host: z.string().min(1).openapi({ description: "Hostname of the machine" }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Complete sync state for the host",
+      content: { "application/json": { schema: syncStateResponseSchema } },
     },
   },
 });
@@ -440,6 +462,89 @@ export function createCollectorRoutes() {
     console.log(`[commit-state] Returning ${commits.length} known SHAs`);
 
     return c.json({ knownShas: commits.map((c) => c.sha) }, 200);
+  });
+
+  // Get complete sync state for a host (combined git repos + workspaces)
+  app.openapi(syncStateRoute, async (c) => {
+    const { host } = c.req.valid("query");
+
+    console.log(`[sync-state] Getting complete state for host="${host}"`);
+
+    // Build result object
+    const result: {
+      gitRepos: Record<string, string[]>;
+      workspaces: Record<string, { originalSessionId: string; entryCount: number; lastLineNumber: number }[]>;
+    } = {
+      gitRepos: {},
+      workspaces: {},
+    };
+
+    // Get all git repos for this host
+    const repos = await db
+      .select({ id: gitRepo.id, path: gitRepo.path, projectId: gitRepo.projectId })
+      .from(gitRepo)
+      .where(eq(gitRepo.host, host));
+
+    console.log(`[sync-state] Found ${repos.length} git repos for host`);
+
+    // For each repo, get all commit SHAs
+    for (const repo of repos) {
+      const commits = await db
+        .select({ sha: gitCommit.sha })
+        .from(gitCommit)
+        .where(eq(gitCommit.projectId, repo.projectId));
+
+      result.gitRepos[repo.path] = commits.map((c) => c.sha);
+    }
+
+    // Get all workspaces for this host
+    const workspaces = await db
+      .select({ id: workspace.id, cwd: workspace.cwd })
+      .from(workspace)
+      .where(eq(workspace.host, host));
+
+    console.log(`[sync-state] Found ${workspaces.length} workspaces for host`);
+
+    // For each workspace, get all sessions with their state
+    for (const ws of workspaces) {
+      const sessions = await db
+        .select({
+          originalSessionId: session.originalSessionId,
+          entryCount: session.entryCount,
+        })
+        .from(session)
+        .where(eq(session.workspaceId, ws.id));
+
+      // For each session, get the max line number from entries
+      const sessionStates = await Promise.all(
+        sessions.map(async (sess) => {
+          const [maxLine] = await db
+            .select({ maxLineNumber: max(entry.lineNumber) })
+            .from(entry)
+            .innerJoin(session, eq(entry.sessionId, session.id))
+            .where(
+              and(
+                eq(session.workspaceId, ws.id),
+                eq(session.originalSessionId, sess.originalSessionId)
+              )
+            );
+
+          return {
+            originalSessionId: sess.originalSessionId,
+            entryCount: sess.entryCount ?? 0,
+            lastLineNumber: maxLine?.maxLineNumber ?? 0,
+          };
+        })
+      );
+
+      result.workspaces[ws.cwd] = sessionStates;
+    }
+
+    const totalSessions = Object.values(result.workspaces).reduce((sum, ws) => sum + ws.length, 0);
+    const totalCommits = Object.values(result.gitRepos).reduce((sum, shas) => sum + shas.length, 0);
+    console.log(`[sync-state] Returning state: ${repos.length} repos (${totalCommits} commits), ${workspaces.length} workspaces (${totalSessions} sessions)`);
+
+    return c.json(result, 200);
   });
 
   return app;

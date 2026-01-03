@@ -16,7 +16,6 @@ import {
   extractBranches,
   extractCommits,
   buildSyncGitRepo,
-  normalizeUpstreamUrl,
 } from "./git.js";
 import { discoverWorkspaces, buildSyncWorkspace, extractCwdFromSession, type SessionState } from "./sessions.js";
 import type { SyncRequest, SyncGitRepo, SyncWorkspace } from "../api/types.js";
@@ -172,6 +171,47 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
   }
 
   // ==========================================================================
+  // Step 2.5: Fetch Complete Sync State (single API call for delta sync)
+  // ==========================================================================
+  // Maps to store known state from server (populated in non-dry-run mode)
+  const knownCommitsByPath = new Map<string, Set<string>>();
+  const knownSessionsByPath = new Map<string, Map<string, SessionState>>();
+
+  if (!args.dryRun) {
+    try {
+      logger.info("Fetching sync state from server...");
+      const syncState = await withRetry(() => client.getSyncState(collectorId, host));
+
+      // Populate git repo commit state
+      for (const [path, shas] of Object.entries(syncState.gitRepos)) {
+        knownCommitsByPath.set(path, new Set(shas));
+      }
+
+      // Populate workspace session state
+      for (const [cwd, sessions] of Object.entries(syncState.workspaces)) {
+        const sessionMap = new Map<string, SessionState>();
+        for (const session of sessions) {
+          sessionMap.set(session.originalSessionId, {
+            originalSessionId: session.originalSessionId,
+            entryCount: session.entryCount,
+            lastLineNumber: session.lastLineNumber,
+          });
+        }
+        knownSessionsByPath.set(cwd, sessionMap);
+      }
+
+      logger.info(
+        `Server state: ${knownCommitsByPath.size} git repos, ${knownSessionsByPath.size} workspaces`
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown error fetching sync state";
+      logger.warn(`Could not fetch sync state: ${message}, will sync all data`);
+      // Non-fatal, continue with empty state (will sync everything)
+    }
+  }
+
+  // ==========================================================================
   // Step 3: Git Repository Sync
   // ==========================================================================
   if (args.sourceDirs.length > 0) {
@@ -188,26 +228,10 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
         logger.debug(`Processing ${repo.path}...`);
 
         try {
-          // Get known commit SHAs from server (for delta sync)
-          let knownShas = new Set<string>();
-
-          if (!args.dryRun) {
-            try {
-              logger.debug(`Getting commit state for host="${host}", path="${repo.path}"`);
-              const commitState = await client.getCommitState(
-                collectorId,
-                host,
-                repo.path
-              );
-              knownShas = new Set(commitState.knownShas);
-              logger.debug(`Server knows ${knownShas.size} commits for ${repo.path}`);
-            } catch (error) {
-              // If we can't get commit state, sync all commits
-              const msg = error instanceof Error ? error.message : String(error);
-              logger.debug(
-                `Could not get commit state for ${repo.path}: ${msg}, will sync all commits`
-              );
-            }
+          // Get known commit SHAs from cached state (fetched in single API call)
+          const knownShas = knownCommitsByPath.get(repo.path) ?? new Set<string>();
+          if (knownShas.size > 0) {
+            logger.debug(`Server knows ${knownShas.size} commits for ${repo.path}`);
           }
 
           // Extract branches and commits
@@ -265,41 +289,10 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
 
         logger.debug(`Processing workspace ${workspaceCwd}...`);
 
-        // Get session state from server (for delta sync)
-        const knownSessionState = new Map<string, SessionState>();
-
-        if (!args.dryRun) {
-          try {
-            logger.debug(`Requesting session state for host="${host}", cwd="${workspaceCwd}"`);
-            const sessionState = await client.getSessionState(
-              collectorId,
-              host,
-              workspaceCwd
-            );
-
-            for (const session of sessionState.sessions) {
-              knownSessionState.set(session.originalSessionId, {
-                originalSessionId: session.originalSessionId,
-                entryCount: session.entryCount,
-                lastLineNumber: session.lastLineNumber,
-              });
-            }
-
-            logger.debug(
-              `Server knows ${knownSessionState.size} sessions for ${project.originalPath}`
-            );
-
-            // Log sample of session states for debugging
-            if (knownSessionState.size > 0) {
-              const sample = Array.from(knownSessionState.values()).slice(0, 3);
-              logger.debug(`Sample session state: ${sample.map(s => `${s.originalSessionId.slice(0,8)}...: line ${s.lastLineNumber}`).join(", ")}`);
-            }
-          } catch (error) {
-            // If we can't get session state, sync all sessions
-            logger.debug(
-              `Could not get session state for ${project.originalPath}, will sync all sessions`
-            );
-          }
+        // Get session state from cached state (fetched in single API call)
+        const knownSessionState = knownSessionsByPath.get(workspaceCwd) ?? new Map<string, SessionState>();
+        if (knownSessionState.size > 0) {
+          logger.debug(`Server knows ${knownSessionState.size} sessions for ${workspaceCwd}`);
         }
 
         // Build sync workspace with delta entries

@@ -62,6 +62,17 @@ export interface CommitStateResponse {
 }
 
 // =============================================================================
+// Combined Sync State (for efficient delta sync - single API call)
+// =============================================================================
+
+export interface SyncStateResponse {
+  /** Map of git repo path to array of known commit SHAs */
+  gitRepos: Record<string, string[]>;
+  /** Map of workspace cwd to array of session states */
+  workspaces: Record<string, SessionStateItem[]>;
+}
+
+// =============================================================================
 // Git Sync Types
 // =============================================================================
 
