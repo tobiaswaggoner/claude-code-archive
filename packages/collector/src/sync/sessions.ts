@@ -139,15 +139,16 @@ export async function buildSyncSession(
 
   // Get file creation time (birthtime) as fallback for session timestamps
   let fileCreatedAt: Date;
+  let fileStat;
   try {
-    const fileStat = await stat(filePath);
+    fileStat = await stat(filePath);
     // Use birthtime if available, otherwise fall back to mtime
     fileCreatedAt = fileStat.birthtime.getTime() > 0 ? fileStat.birthtime : fileStat.mtime;
   } catch {
     return null;
   }
 
-  // Read the entire file
+  // Read the file once
   let content: string;
   try {
     content = await readFile(filePath, "utf-8");
@@ -156,6 +157,11 @@ export async function buildSyncSession(
   }
 
   const lines = content.split("\n").filter((line) => line.trim().length > 0);
+
+  // Quick check: if we have known state and no new lines, skip
+  if (knownState && lines.length <= knownState.lastLineNumber) {
+    return null;
+  }
   const entries: SyncEntry[] = [];
   let parentOriginalSessionId: string | null = null;
 

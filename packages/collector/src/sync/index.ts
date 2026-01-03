@@ -280,10 +280,9 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
         // Build sync workspace with delta entries
         const workspace = await buildSyncWorkspace(project, knownSessionState);
 
-        // Always include workspaces to ensure git repo linking is updated
-        workspaces.push(workspace);
-
+        // Only include workspaces with new sessions/entries
         if (workspace.sessions.length > 0) {
+          workspaces.push(workspace);
           result.workspacesSynced++;
           result.sessionsFound += workspace.sessions.length;
 
