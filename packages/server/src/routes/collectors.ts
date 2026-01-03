@@ -19,9 +19,6 @@ import {
   runLogCreateSchema,
   runLogSchema,
   errorSchema,
-  paginatedResponseSchema,
-  sessionStateResponseSchema,
-  commitStateResponseSchema,
   syncStateResponseSchema,
 } from "./schemas.js";
 
@@ -168,50 +165,6 @@ const getLogsRoute = createRoute({
       content: {
         "application/json": { schema: z.object({ items: z.array(runLogSchema) }) },
       },
-    },
-  },
-});
-
-const sessionStateRoute = createRoute({
-  method: "get",
-  path: "/collectors/{id}/session-state",
-  tags: ["collectors"],
-  summary: "Get session state for a workspace",
-  description:
-    "Returns sessions with entry counts for a specific workspace, used for delta sync",
-  request: {
-    params: z.object({ id: z.string().uuid() }),
-    query: z.object({
-      host: z.string().min(1).openapi({ description: "Hostname" }),
-      cwd: z.string().min(1).openapi({ description: "Working directory path" }),
-    }),
-  },
-  responses: {
-    200: {
-      description: "Session state for the workspace",
-      content: { "application/json": { schema: sessionStateResponseSchema } },
-    },
-  },
-});
-
-const commitStateRoute = createRoute({
-  method: "get",
-  path: "/collectors/{id}/commit-state",
-  tags: ["collectors"],
-  summary: "Get known commit SHAs for a git repo",
-  description:
-    "Returns all known commit SHAs for a git repo by host and path, used for delta sync",
-  request: {
-    params: z.object({ id: z.string().uuid() }),
-    query: z.object({
-      host: z.string().min(1).openapi({ description: "Hostname of the machine" }),
-      path: z.string().min(1).openapi({ description: "Absolute path to the git repo" }),
-    }),
-  },
-  responses: {
-    200: {
-      description: "Known commit SHAs for the git repo",
-      content: { "application/json": { schema: commitStateResponseSchema } },
     },
   },
 });
@@ -373,95 +326,6 @@ export function createCollectorRoutes() {
     }
 
     return c.json({ items: results.map(formatRunLog) }, 200);
-  });
-
-  // Get session state for a workspace
-  app.openapi(sessionStateRoute, async (c) => {
-    const { host, cwd } = c.req.valid("query");
-
-    console.log(`[session-state] Looking up workspace: host="${host}", cwd="${cwd}"`);
-
-    // Find workspace by host + cwd
-    const [ws] = await db
-      .select()
-      .from(workspace)
-      .where(and(eq(workspace.host, host), eq(workspace.cwd, cwd)));
-
-    if (!ws) {
-      // Return empty array if workspace not found
-      console.log(`[session-state] Workspace NOT FOUND - returning empty sessions`);
-      return c.json({ sessions: [] }, 200);
-    }
-
-    console.log(`[session-state] Found workspace id=${ws.id}`);
-
-    // Get sessions with entry counts and max line numbers
-    const sessions = await db
-      .select({
-        originalSessionId: session.originalSessionId,
-        entryCount: session.entryCount,
-      })
-      .from(session)
-      .where(eq(session.workspaceId, ws.id));
-
-    console.log(`[session-state] Found ${sessions.length} sessions in DB`);
-
-    // For each session, get the max line number from entries
-    const result = await Promise.all(
-      sessions.map(async (sess) => {
-        const [maxLine] = await db
-          .select({ maxLineNumber: max(entry.lineNumber) })
-          .from(entry)
-          .innerJoin(session, eq(entry.sessionId, session.id))
-          .where(
-            and(
-              eq(session.workspaceId, ws.id),
-              eq(session.originalSessionId, sess.originalSessionId)
-            )
-          );
-
-        return {
-          originalSessionId: sess.originalSessionId,
-          entryCount: sess.entryCount ?? 0,
-          lastLineNumber: maxLine?.maxLineNumber ?? 0,
-        };
-      })
-    );
-
-    console.log(`[session-state] Returning ${result.length} sessions, sample:`,
-      result.slice(0, 3).map(s => `${s.originalSessionId}: ${s.lastLineNumber} lines`));
-
-    return c.json({ sessions: result }, 200);
-  });
-
-  // Get known commit SHAs for a git repo
-  app.openapi(commitStateRoute, async (c) => {
-    const { host, path } = c.req.valid("query");
-
-    console.log(`[commit-state] Looking up git_repo for host="${host}", path="${path}"`);
-
-    // Find git_repo by host + path
-    const [repo] = await db
-      .select()
-      .from(gitRepo)
-      .where(and(eq(gitRepo.host, host), eq(gitRepo.path, path)));
-
-    if (!repo) {
-      console.log(`[commit-state] Git repo NOT FOUND`);
-      return c.json({ knownShas: [] }, 200);
-    }
-
-    console.log(`[commit-state] Found git_repo id=${repo.id}, project_id=${repo.projectId}`);
-
-    // Get all commit SHAs for this project
-    const commits = await db
-      .select({ sha: gitCommit.sha })
-      .from(gitCommit)
-      .where(eq(gitCommit.projectId, repo.projectId));
-
-    console.log(`[commit-state] Returning ${commits.length} known SHAs`);
-
-    return c.json({ knownShas: commits.map((c) => c.sha) }, 200);
   });
 
   // Get complete sync state for a host (combined git repos + workspaces)

@@ -5,8 +5,7 @@ import type {
   RegisterRequest,
   RegisterResponse,
   HeartbeatRequest,
-  SessionStateResponse,
-  CommitStateResponse,
+  SyncStateResponse,
   SyncRequest,
   SyncResponse,
   LogEntry,
@@ -146,23 +145,23 @@ describe("ApiClient", () => {
     });
   });
 
-  describe("getSessionState", () => {
+  describe("getSyncState", () => {
     const collectorId = "550e8400-e29b-41d4-a716-446655440000";
 
     it("should build correct query params", async () => {
-      const responseData: SessionStateResponse = {
-        sessions: [
-          {
-            originalSessionId: "session-123",
-            entryCount: 42,
-            lastLineNumber: 100,
-          },
-          {
-            originalSessionId: "session-456",
-            entryCount: 10,
-            lastLineNumber: 20,
-          },
-        ],
+      const responseData: SyncStateResponse = {
+        gitRepos: {
+          "/home/user/repo": ["abc123", "def456"],
+        },
+        workspaces: {
+          "/home/user/project": [
+            {
+              originalSessionId: "session-123",
+              entryCount: 42,
+              lastLineNumber: 100,
+            },
+          ],
+        },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -171,56 +170,18 @@ describe("ApiClient", () => {
         json: async () => responseData,
       });
 
-      const result = await client.getSessionState(
-        collectorId,
-        "my-host",
-        "/home/user/project"
-      );
+      const result = await client.getSyncState(collectorId, "my-host");
 
       expect(mockFetch).toHaveBeenCalledOnce();
       const [url, options] = mockFetch.mock.calls[0];
       const parsedUrl = new URL(url);
       expect(parsedUrl.pathname).toBe(
-        `/api/collectors/${collectorId}/session-state`
+        `/api/collectors/${collectorId}/sync-state`
       );
       expect(parsedUrl.searchParams.get("host")).toBe("my-host");
-      expect(parsedUrl.searchParams.get("cwd")).toBe("/home/user/project");
       expect(options.method).toBe("GET");
       expect(options.headers["X-API-Key"]).toBe("test-api-key-123");
       expect(options.body).toBeUndefined();
-      expect(result).toEqual(responseData);
-    });
-  });
-
-  describe("getCommitState", () => {
-    const collectorId = "550e8400-e29b-41d4-a716-446655440000";
-
-    it("should build correct query params", async () => {
-      const responseData: CommitStateResponse = {
-        knownShas: ["abc123", "def456", "ghi789"],
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => responseData,
-      });
-
-      const result = await client.getCommitState(
-        collectorId,
-        "my-host",
-        "/home/user/repo"
-      );
-
-      expect(mockFetch).toHaveBeenCalledOnce();
-      const [url, options] = mockFetch.mock.calls[0];
-      const parsedUrl = new URL(url);
-      expect(parsedUrl.pathname).toBe(
-        `/api/collectors/${collectorId}/commit-state`
-      );
-      expect(parsedUrl.searchParams.get("host")).toBe("my-host");
-      expect(parsedUrl.searchParams.get("path")).toBe("/home/user/repo");
-      expect(options.method).toBe("GET");
       expect(result).toEqual(responseData);
     });
   });
@@ -646,8 +607,7 @@ describe("ApiClient", () => {
       // Test various endpoints
       await client.register({ id: "test", name: "test", hostname: "test" });
       await client.heartbeat(collectorId);
-      await client.getSessionState(collectorId, "host", "/path");
-      await client.getCommitState(collectorId, "https://github.com/user/repo");
+      await client.getSyncState(collectorId, "host");
 
       for (const call of mockFetch.mock.calls) {
         const [, options] = call;
@@ -659,13 +619,13 @@ describe("ApiClient", () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ sessions: [] }),
+        json: async () => ({ gitRepos: {}, workspaces: {} }),
       });
 
       const collectorId = "550e8400-e29b-41d4-a716-446655440000";
 
       // GET request - no Content-Type
-      await client.getSessionState(collectorId, "host", "/path");
+      await client.getSyncState(collectorId, "host");
       const [, getOptions] = mockFetch.mock.calls[0];
       expect(getOptions.headers["Content-Type"]).toBeUndefined();
 

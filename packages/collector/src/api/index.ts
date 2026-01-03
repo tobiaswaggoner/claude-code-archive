@@ -9,11 +9,9 @@ export type {
   RegisterResponse,
   // Heartbeat
   HeartbeatRequest,
-  // Session state
+  // Sync state (delta sync)
   SessionStateItem,
-  SessionStateResponse,
-  // Commit state
-  CommitStateResponse,
+  SyncStateResponse,
   // Git sync
   GitBranch,
   GitCommit,

@@ -2,6 +2,20 @@
 
 ## History
 
+### 2026-01-03 17:45 - Sync State API Optimization
+
+Consolidated N+M delta-sync API calls into single call:
+
+**Before:** Per-repo and per-workspace calls
+- `GET /api/collectors/{id}/session-state?host=X&cwd=Y` (per workspace)
+- `GET /api/collectors/{id}/commit-state?host=X&path=Y` (per repo)
+
+**After:** Single call for all state
+- `GET /api/collectors/{id}/sync-state?host=X`
+- Returns: `{ gitRepos: { path: [shas] }, workspaces: { cwd: [sessions] } }`
+
+Removed deprecated endpoints and tests. 163 tests passing (32 server + 131 collector).
+
 ### 2026-01-03 17:15 - Multi-Host Sync & Idempotency
 
 Successfully synced from both WSL and Windows collectors. Fixed several issues to achieve reliable delta sync:
@@ -42,10 +56,9 @@ Successfully synced from both WSL and Windows collectors. Fixed several issues t
 - Branch tracking with ahead/behind counts
 - Delta sync: queries server for known entries/commits before syncing
 - Tool results synchronization (text and binary)
-- Server endpoints for delta detection:
-  - `GET /api/collectors/{id}/session-state`
-  - `GET /api/collectors/{id}/commit-state`
-- 168 total unit tests (36 server + 132 collector)
+- Server endpoint for delta detection:
+  - `GET /api/collectors/{id}/sync-state`
+- 163 total unit tests (32 server + 131 collector)
 
 **Usage:**
 ```bash

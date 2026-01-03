@@ -8,8 +8,6 @@ import type {
   RegisterRequest,
   RegisterResponse,
   HeartbeatRequest,
-  SessionStateResponse,
-  CommitStateResponse,
   SyncStateResponse,
   SyncRequest,
   SyncResponse,
@@ -143,46 +141,8 @@ export class ApiClient {
   }
 
   /**
-   * Get the current session state for a workspace.
-   * Used for delta sync to determine which entries have already been synced.
-   */
-  async getSessionState(
-    collectorId: string,
-    host: string,
-    cwd: string
-  ): Promise<SessionStateResponse> {
-    return this.request<SessionStateResponse>(
-      "GET",
-      `/api/collectors/${collectorId}/session-state`,
-      {
-        query: { host, cwd },
-      }
-    );
-  }
-
-  /**
-   * Get the known commit SHAs for a git repository.
-   * Used for delta sync to determine which commits have already been synced.
-   * @deprecated Use getSyncState() for more efficient single-call state retrieval
-   */
-  async getCommitState(
-    collectorId: string,
-    host: string,
-    path: string
-  ): Promise<CommitStateResponse> {
-    return this.request<CommitStateResponse>(
-      "GET",
-      `/api/collectors/${collectorId}/commit-state`,
-      {
-        query: { host, path },
-      }
-    );
-  }
-
-  /**
    * Get the complete sync state for a host in a single API call.
    * Returns all known git repo commits and workspace session states.
-   * More efficient than calling getSessionState/getCommitState separately.
    */
   async getSyncState(
     collectorId: string,

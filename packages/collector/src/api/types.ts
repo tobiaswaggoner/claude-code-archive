@@ -40,7 +40,7 @@ export interface HeartbeatRequest {
 }
 
 // =============================================================================
-// Session State (for delta sync)
+// Sync State (for delta sync - single API call)
 // =============================================================================
 
 export interface SessionStateItem {
@@ -48,22 +48,6 @@ export interface SessionStateItem {
   entryCount: number;
   lastLineNumber: number;
 }
-
-export interface SessionStateResponse {
-  sessions: SessionStateItem[];
-}
-
-// =============================================================================
-// Commit State (for delta sync)
-// =============================================================================
-
-export interface CommitStateResponse {
-  knownShas: string[];
-}
-
-// =============================================================================
-// Combined Sync State (for efficient delta sync - single API call)
-// =============================================================================
 
 export interface SyncStateResponse {
   /** Map of git repo path to array of known commit SHAs */

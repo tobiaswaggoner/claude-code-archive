@@ -226,22 +226,13 @@ export const runLogCreateSchema = z.object({
   context: z.record(z.unknown()).optional(),
 });
 
-// Collector state schemas (for delta sync)
+// Sync state schema (for delta sync - single API call)
 export const sessionStateItemSchema = z.object({
   originalSessionId: z.string(),
   entryCount: z.number(),
   lastLineNumber: z.number(),
 });
 
-export const sessionStateResponseSchema = z.object({
-  sessions: z.array(sessionStateItemSchema),
-});
-
-export const commitStateResponseSchema = z.object({
-  knownShas: z.array(z.string()),
-});
-
-// Combined sync state for efficient delta sync (single API call)
 export const syncStateResponseSchema = z.object({
   gitRepos: z.record(z.array(z.string())).openapi({
     description: "Map of git repo path to array of known commit SHAs",
