@@ -9,19 +9,21 @@
 - [x] Zeitliche Übersicht - DONE (GitHub-style activity heatmap)
 
 ## Current Iteration: 2
-Working on: Post-MVP features for UI-COMPLETE
-Status: In Progress
+Working on: UI-COMPLETE
+Status: COMPLETE
 
 ## Completed Features:
 1. Navigation & Layout - Iteration 1 - Sidebar navigation with sections, theme toggle, user menu
 2. Projects List - Iteration 1 - Table view with search, session/repo/workspace counts, relative time, GitHub links
 3. Session List - Iteration 1 - Table with project/host, entry/agent counts, models, tokens, time
 4. Session Viewer - Iteration 1 - Header with stats, entries with role-based styling, infinite scroll
-5. Activity Heatmap - Iteration 2 - GitHub-style contribution graph showing session activity (606 sessions, 51k entries, 10M tokens)
+5. Activity Heatmap - Iteration 2 - GitHub-style contribution graph showing session activity
+6. Markdown Rendering - Iteration 2 - react-markdown with syntax highlighting for code blocks
+7. Dashboard - Iteration 2 - Stats cards, activity heatmap, recent sessions, top projects
 
-## Next Up (for UI-COMPLETE):
-1. Markdown rendering for assistant messages (code highlighting)
-2. Dashboard with real stats from API
+## Post-MVP Features Completed (2/2):
+1. Markdown rendering with syntax highlighting (react-markdown + react-syntax-highlighter)
+2. Dashboard with real stats from API (173 projects, 1648 sessions, 1.4M tokens)
 
 ## Decisions Made:
 - Using BetterAuth for authentication (NEXT_PUBLIC_AUTH_MODE=backend)

@@ -13,6 +13,7 @@ import {
   Archive,
   AlertTriangle,
   CalendarDays,
+  LayoutDashboard,
 } from "lucide-react";
 
 import {
@@ -50,6 +51,7 @@ const IS_MOCK_MODE = AUTH_MODE !== "backend";
 
 const navItems = {
   archive: [
+    { title: "Dashboard", url: "/", icon: LayoutDashboard },
     { title: "Projects", url: "/projects", icon: FolderOpen },
     { title: "Sessions", url: "/sessions", icon: MessageSquare },
     { title: "Activity", url: "/activity", icon: CalendarDays },
