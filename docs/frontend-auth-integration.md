@@ -305,10 +305,10 @@ Nach `pnpm db:seed` existieren:
 
 | Email | Rolle | Auth-Methode |
 |-------|-------|--------------|
-| `admin@localhost` | admin | Email/Password |
-| `system@localhost` | system | API-Key |
+| `admin@claude-archive.local` | admin | Email/Password |
+| `system@claude-archive.local` | system | API-Key |
 
-**Admin-Passwort:** Wird beim Seed-Lauf ausgegeben (oder via `ADMIN_PASSWORD` env var)
+**Admin-Passwort:** Wird beim Seed-Lauf ausgegeben (oder via `ADMIN_PASSWORD` env var, default: `admin123!`)
 
 ## CORS-Konfiguration
 

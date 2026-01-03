@@ -12,6 +12,10 @@ export { workspace } from "./workspace";
 export { session } from "./session";
 export { entry } from "./entry";
 export { toolResult } from "./tool-result";
+export { authUser } from "./auth-user";
+export { authSession } from "./auth-session";
+export { authAccount } from "./auth-account";
+export { authVerification } from "./auth-verification";
 
 // Relations
 export { collectorRelations } from "./collector";
@@ -24,6 +28,9 @@ export { workspaceRelations } from "./workspace";
 export { sessionRelations } from "./session";
 export { entryRelations } from "./entry";
 export { toolResultRelations } from "./tool-result";
+export { authUserRelations } from "./auth-user";
+export { authSessionRelations } from "./auth-session";
+export { authAccountRelations } from "./auth-account";
 
 // TypeScript types - Select (read from DB)
 export type { Collector } from "./collector";
@@ -36,6 +43,10 @@ export type { Workspace } from "./workspace";
 export type { Session } from "./session";
 export type { Entry } from "./entry";
 export type { ToolResult } from "./tool-result";
+export type { AuthUser } from "./auth-user";
+export type { AuthSession } from "./auth-session";
+export type { AuthAccount } from "./auth-account";
+export type { AuthVerification } from "./auth-verification";
 
 // TypeScript types - Insert (write to DB)
 export type { NewCollector } from "./collector";
@@ -48,3 +59,7 @@ export type { NewWorkspace } from "./workspace";
 export type { NewSession } from "./session";
 export type { NewEntry } from "./entry";
 export type { NewToolResult } from "./tool-result";
+export type { NewAuthUser } from "./auth-user";
+export type { NewAuthSession } from "./auth-session";
+export type { NewAuthAccount } from "./auth-account";
+export type { NewAuthVerification } from "./auth-verification";
