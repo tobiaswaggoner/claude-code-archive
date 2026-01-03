@@ -15,6 +15,13 @@
       "when": 1767446662782,
       "tag": "0001_deep_madame_web",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767450189926,
+      "tag": "0002_lame_the_initiative",
+      "breakpoints": true
     }
   ]
 }

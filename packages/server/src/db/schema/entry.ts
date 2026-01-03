@@ -5,6 +5,7 @@ import {
   pgSchema,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -45,11 +46,8 @@ export const entry = claudeArchiveSchema.table(
     data: jsonb("data").notNull(),
   },
   (table) => [
-    // Order within session
-    index("entry_session_line_number_idx").on(
-      table.sessionId,
-      table.lineNumber
-    ),
+    // Unique constraint: one entry per session + line number
+    unique("entry_session_line_unique").on(table.sessionId, table.lineNumber),
     // Filter by type
     index("entry_session_type_idx").on(table.sessionId, table.type),
     // Time-based search
