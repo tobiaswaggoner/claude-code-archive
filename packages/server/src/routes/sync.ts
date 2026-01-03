@@ -257,12 +257,17 @@ export function createSyncRoutes() {
     // Process workspaces
     if (data.workspaces) {
       for (const ws of data.workspaces) {
-        // Find matching git repo for this workspace
-        const [matchingRepo] = await db
+        // Find matching git repo for this workspace by checking if cwd is inside repo path
+        const reposOnHost = await db
           .select()
           .from(gitRepo)
           .where(eq(gitRepo.host, ws.host));
-        // Note: In production, would check if ws.cwd is inside gitRepo.path
+
+        // Find the git repo whose path contains this workspace's cwd
+        // Sort by path length descending to match the most specific (deepest) repo first
+        const matchingRepo = reposOnHost
+          .filter((repo) => ws.cwd === repo.path || ws.cwd.startsWith(repo.path + "/"))
+          .sort((a, b) => b.path.length - a.path.length)[0];
 
         let projectId: string;
         let gitRepoId: string | null = null;
@@ -271,17 +276,29 @@ export function createSyncRoutes() {
           projectId = matchingRepo.projectId;
           gitRepoId = matchingRepo.id;
         } else {
-          // Create project for workspace without git
-          const [newProject] = await db
-            .insert(project)
-            .values({
-              name: ws.cwd.split("/").pop() || "unknown",
-              createdAt: now,
-              updatedAt: now,
-            })
-            .returning();
-          projectId = newProject.id;
-          stats.projectsCreated++;
+          // No git repo found - check if a project with matching name already exists
+          const workspaceName = ws.cwd.split("/").pop() || "unknown";
+          const [existingProject] = await db
+            .select()
+            .from(project)
+            .where(eq(project.name, workspaceName));
+
+          if (existingProject && !existingProject.upstreamUrl) {
+            // Reuse existing non-git project
+            projectId = existingProject.id;
+          } else {
+            // Create project for workspace without git
+            const [newProject] = await db
+              .insert(project)
+              .values({
+                name: workspaceName,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .returning();
+            projectId = newProject.id;
+            stats.projectsCreated++;
+          }
         }
 
         // Upsert workspace

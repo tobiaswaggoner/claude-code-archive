@@ -48,6 +48,33 @@ export async function discoverWorkspaces(): Promise<ProjectInfo[]> {
 // =============================================================================
 
 /**
+ * Extract the real cwd from a JSONL session file.
+ * Looks for the first entry with a cwd field (usually user entries).
+ */
+export async function extractCwdFromSession(
+  sessionPath: string
+): Promise<string | null> {
+  try {
+    const content = await readFile(sessionPath, "utf-8");
+    const lines = content.split("\n").filter((line) => line.trim().length > 0);
+
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line);
+        if (parsed.cwd && typeof parsed.cwd === "string") {
+          return parsed.cwd;
+        }
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    // File not readable
+  }
+  return null;
+}
+
+/**
  * Build a sync workspace payload for a project.
  *
  * @param project - The project info from the parser
@@ -59,6 +86,13 @@ export async function buildSyncWorkspace(
   knownSessionState: Map<string, SessionState>
 ): Promise<SyncWorkspace> {
   const sessions: SyncSession[] = [];
+
+  // Try to extract real cwd from session entries (more reliable than decoded path)
+  let realCwd: string | null = null;
+  for (const sessionFile of project.sessions) {
+    realCwd = await extractCwdFromSession(sessionFile.path);
+    if (realCwd) break;
+  }
 
   for (const sessionFile of project.sessions) {
     const sessionId = sessionFile.sessionId;
@@ -77,7 +111,7 @@ export async function buildSyncWorkspace(
 
   return {
     host: hostname(),
-    cwd: project.originalPath,
+    cwd: realCwd || project.originalPath, // Use real cwd if found, fallback to decoded
     claudeProjectPath: project.claudePath,
     sessions,
   };
