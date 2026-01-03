@@ -2,6 +2,37 @@
 
 ## History
 
+### 2026-01-03 18:30 - Web UI Base Implementation
+
+Implemented Next.js 16 frontend with Feature Slices architecture:
+
+**Tech Stack:**
+- Next.js 16.1 + React 19.2 + Tailwind CSS 4.1
+- shadcn/ui components (Button, Card, Sidebar, etc.)
+- next-themes for Dark/Light mode
+- Vitest + Testing Library (13 tests)
+
+**Features:**
+- Collapsible sidebar with navigation (Projects, Sessions, Repos, Commits, Collectors, Settings)
+- Dark/Light mode toggle
+- Login page with mock auth (admin@example.com / password123)
+- Dashboard with stats cards placeholder
+- DI container for testable services
+
+**Architecture:**
+```
+packages/web/src/
+├── app/           # Next.js App Router
+├── core/          # DI container, Auth service
+├── features/      # Feature slices (auth, projects, etc.)
+├── shared/        # Layout components (Sidebar, Header)
+└── test/          # Test utilities
+```
+
+**Port:** Dev server runs on `localhost:4005`
+
+**Backend Auth Guide:** `packages/web/docs/BACKEND-AUTH-GUIDE.md` - Instructions for parallel backend implementation.
+
 ### 2026-01-03 18:00 - Standalone Collector Bundle
 
 Added standalone bundle for easy deployment without npm:
@@ -169,10 +200,18 @@ Headless Claude Code session control:
 - [ ] WebSocket output streaming
 - [ ] API integration for UI control
 
-### Step 4: Web UI (`packages/web`)
+### Step 4: Web UI (`packages/web`) - IN PROGRESS
 
 NextJS dashboard:
 
+- [x] Next.js 16 + Tailwind 4 + shadcn/ui setup
+- [x] Feature Slices architecture with DI
+- [x] Collapsible sidebar navigation
+- [x] Dark/Light mode toggle
+- [x] Mock auth with login page
+- [x] Dashboard layout with stats cards
+- [x] Vitest test setup (13 tests)
+- [ ] Backend auth integration (Better Auth)
 - [ ] Project/session browser
 - [ ] Timeline visualization
 - [ ] Search and analysis
@@ -198,6 +237,11 @@ pnpm dev
 
 # API docs
 http://localhost:4001/api/docs
+
+# Run web UI
+cd packages/web
+pnpm dev              # http://localhost:4005
+pnpm test             # Vitest watch mode
 ```
 
 ---
