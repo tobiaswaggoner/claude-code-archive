@@ -159,8 +159,15 @@ export async function buildSyncSession(
   const lines = content.split("\n").filter((line) => line.trim().length > 0);
 
   // Quick check: if we have known state and no new lines, skip
-  if (knownState && lines.length <= knownState.lastLineNumber) {
-    return null;
+  if (knownState) {
+    if (lines.length <= knownState.lastLineNumber) {
+      // No new lines - skip silently
+      return null;
+    }
+    // Log that we found new entries
+    console.log(`[delta] Session ${sessionFile.sessionId.slice(0,8)}...: file has ${lines.length} lines, server knows ${knownState.lastLineNumber} -> syncing ${lines.length - knownState.lastLineNumber} new entries`);
+  } else {
+    console.log(`[delta] Session ${sessionFile.sessionId.slice(0,8)}...: no known state, syncing all ${lines.length} entries`);
   }
   const entries: SyncEntry[] = [];
   let parentOriginalSessionId: string | null = null;

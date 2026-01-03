@@ -358,6 +358,8 @@ export function createCollectorRoutes() {
   app.openapi(sessionStateRoute, async (c) => {
     const { host, cwd } = c.req.valid("query");
 
+    console.log(`[session-state] Looking up workspace: host="${host}", cwd="${cwd}"`);
+
     // Find workspace by host + cwd
     const [ws] = await db
       .select()
@@ -366,8 +368,11 @@ export function createCollectorRoutes() {
 
     if (!ws) {
       // Return empty array if workspace not found
+      console.log(`[session-state] Workspace NOT FOUND - returning empty sessions`);
       return c.json({ sessions: [] }, 200);
     }
+
+    console.log(`[session-state] Found workspace id=${ws.id}`);
 
     // Get sessions with entry counts and max line numbers
     const sessions = await db
@@ -377,6 +382,8 @@ export function createCollectorRoutes() {
       })
       .from(session)
       .where(eq(session.workspaceId, ws.id));
+
+    console.log(`[session-state] Found ${sessions.length} sessions in DB`);
 
     // For each session, get the max line number from entries
     const result = await Promise.all(
@@ -399,6 +406,9 @@ export function createCollectorRoutes() {
         };
       })
     );
+
+    console.log(`[session-state] Returning ${result.length} sessions, sample:`,
+      result.slice(0, 3).map(s => `${s.originalSessionId}: ${s.lastLineNumber} lines`));
 
     return c.json({ sessions: result }, 200);
   });

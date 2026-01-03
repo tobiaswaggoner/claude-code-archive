@@ -252,6 +252,7 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
 
         if (!args.dryRun) {
           try {
+            logger.debug(`Requesting session state for host="${host}", cwd="${project.originalPath}"`);
             const sessionState = await client.getSessionState(
               collectorId,
               host,
@@ -269,6 +270,12 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
             logger.debug(
               `Server knows ${knownSessionState.size} sessions for ${project.originalPath}`
             );
+
+            // Log sample of session states for debugging
+            if (knownSessionState.size > 0) {
+              const sample = Array.from(knownSessionState.values()).slice(0, 3);
+              logger.debug(`Sample session state: ${sample.map(s => `${s.originalSessionId.slice(0,8)}...: line ${s.lastLineNumber}`).join(", ")}`);
+            }
           } catch (error) {
             // If we can't get session state, sync all sessions
             logger.debug(
