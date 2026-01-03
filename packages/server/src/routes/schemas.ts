@@ -138,7 +138,7 @@ export const syncGitRepoSchema = z.object({
   isDirty: z.boolean(),
   dirtyFilesCount: z.number().nullable(),
   dirtySnapshot: z.record(z.unknown()).nullable(),
-  lastFileChangeAt: z.string().datetime().nullable(),
+  lastFileChangeAt: z.string().datetime({ offset: true }).nullable(),
   branches: z.array(
     z.object({
       name: z.string(),
@@ -147,7 +147,7 @@ export const syncGitRepoSchema = z.object({
       upstreamSha: z.string().nullable(),
       aheadCount: z.number().default(0),
       behindCount: z.number().default(0),
-      lastCommitAt: z.string().datetime().nullable(),
+      lastCommitAt: z.string().datetime({ offset: true }).nullable(),
     })
   ),
   commits: z.array(
@@ -156,9 +156,9 @@ export const syncGitRepoSchema = z.object({
       message: z.string(),
       authorName: z.string(),
       authorEmail: z.string(),
-      authorDate: z.string().datetime(),
+      authorDate: z.string().datetime({ offset: true }),
       committerName: z.string().nullable(),
-      committerDate: z.string().datetime().nullable(),
+      committerDate: z.string().datetime({ offset: true }).nullable(),
       parentShas: z.array(z.string()).nullable(),
     })
   ),
