@@ -76,14 +76,15 @@ describe("parseGitLogOutput", () => {
     const commits = parseGitLogOutput(output, new Set());
 
     expect(commits).toHaveLength(2);
+    // Dates are normalized to ISO 8601 format with .000Z
     expect(commits[0]).toEqual({
       sha: "abc123",
       message: "Initial commit",
       authorName: "John Doe",
       authorEmail: "john@example.com",
-      authorDate: "2024-01-15T10:30:00+00:00",
+      authorDate: "2024-01-15T10:30:00.000Z",
       committerName: "John Doe",
-      committerDate: "2024-01-15T10:30:00+00:00",
+      committerDate: "2024-01-15T10:30:00.000Z",
       parentShas: [],
     });
     expect(commits[1]).toEqual({
@@ -91,9 +92,9 @@ describe("parseGitLogOutput", () => {
       message: "Add feature",
       authorName: "Jane Smith",
       authorEmail: "jane@example.com",
-      authorDate: "2024-01-16T11:00:00+00:00",
+      authorDate: "2024-01-16T11:00:00.000Z",
       committerName: "Jane Smith",
-      committerDate: "2024-01-16T11:00:00+00:00",
+      committerDate: "2024-01-16T11:00:00.000Z",
       parentShas: ["abc123"],
     });
   });

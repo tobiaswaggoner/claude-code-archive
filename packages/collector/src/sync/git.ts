@@ -342,6 +342,23 @@ export async function extractBranches(repoPath: string): Promise<GitBranch[]> {
 }
 
 /**
+ * Validate and normalize an ISO 8601 datetime string.
+ * Returns the normalized string or null if invalid.
+ */
+function normalizeDateTime(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+
+  // Try to parse the date
+  const parsed = Date.parse(dateStr);
+  if (isNaN(parsed)) {
+    return null;
+  }
+
+  // Return as proper ISO 8601 format
+  return new Date(parsed).toISOString();
+}
+
+/**
  * Extract commits from a repository, excluding known SHAs.
  */
 export async function extractCommits(
@@ -368,13 +385,22 @@ export async function extractCommits(
     const message = parts[1];
     const authorName = parts[2];
     const authorEmail = parts[3];
-    const authorDate = parts[4];
+    const authorDateRaw = parts[4];
     const committerName = parts[5];
-    const committerDate = parts[6];
+    const committerDateRaw = parts[6];
     const parentShas = parts[7] ? parts[7].split(" ").filter(Boolean) : [];
 
     // Skip if we already know this commit
     if (knownShas.has(sha)) continue;
+
+    // Validate and normalize dates
+    const authorDate = normalizeDateTime(authorDateRaw);
+    const committerDate = normalizeDateTime(committerDateRaw);
+
+    // Skip commits with invalid author date (required field)
+    if (!authorDate) {
+      continue;
+    }
 
     commits.push({
       sha,
@@ -383,7 +409,7 @@ export async function extractCommits(
       authorEmail,
       authorDate,
       committerName: committerName || null,
-      committerDate: committerDate || null,
+      committerDate,
       parentShas,
     });
   }
@@ -411,12 +437,21 @@ export function parseGitLogOutput(
     const message = parts[1];
     const authorName = parts[2];
     const authorEmail = parts[3];
-    const authorDate = parts[4];
+    const authorDateRaw = parts[4];
     const committerName = parts[5];
-    const committerDate = parts[6];
+    const committerDateRaw = parts[6];
     const parentShas = parts[7] ? parts[7].split(" ").filter(Boolean) : [];
 
     if (knownShas.has(sha)) continue;
+
+    // Validate and normalize dates
+    const authorDate = normalizeDateTime(authorDateRaw);
+    const committerDate = normalizeDateTime(committerDateRaw);
+
+    // Skip commits with invalid author date (required field)
+    if (!authorDate) {
+      continue;
+    }
 
     commits.push({
       sha,
@@ -425,7 +460,7 @@ export function parseGitLogOutput(
       authorEmail,
       authorDate,
       committerName: committerName || null,
-      committerDate: committerDate || null,
+      committerDate,
       parentShas,
     });
   }
