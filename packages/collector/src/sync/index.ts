@@ -309,51 +309,73 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
   }
 
   // ==========================================================================
-  // Step 5: Send Sync Data
+  // Step 5: Send Sync Data (in batches to avoid payload size limits)
   // ==========================================================================
   if (!args.dryRun) {
     // Only send if we have data to sync
     if (gitRepos.length > 0 || workspaces.length > 0) {
-      logger.info("Sending sync data...");
+      logger.info("Sending sync data in batches...");
 
-      const syncRequest: SyncRequest = {
-        syncRunId,
-        gitRepos: gitRepos.length > 0 ? gitRepos : undefined,
-        workspaces: workspaces.length > 0 ? workspaces : undefined,
-      };
+      let totalEntriesCreated = 0;
+      let totalCommitsCreated = 0;
+      let batchErrors = 0;
 
+      // Send git repos in batches of 10
+      const GIT_BATCH_SIZE = 10;
+      for (let i = 0; i < gitRepos.length; i += GIT_BATCH_SIZE) {
+        const batch = gitRepos.slice(i, i + GIT_BATCH_SIZE);
+        const batchNum = Math.floor(i / GIT_BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(gitRepos.length / GIT_BATCH_SIZE);
+
+        logger.debug(`Sending git repos batch ${batchNum}/${totalBatches} (${batch.length} repos)...`);
+
+        try {
+          const response = await withRetry(() =>
+            client.sync(collectorId, { syncRunId, gitRepos: batch })
+          );
+          totalCommitsCreated += response.commitsCreated;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error(`Failed to sync git batch ${batchNum}: ${message}`);
+          result.errors.push(`Git batch ${batchNum}: ${message}`);
+          batchErrors++;
+        }
+      }
+
+      // Send each workspace individually (they can have many entries)
+      for (let i = 0; i < workspaces.length; i++) {
+        const ws = workspaces[i];
+        const entryCount = ws.sessions.reduce((sum, s) => sum + s.entries.length, 0);
+
+        logger.debug(
+          `Sending workspace ${i + 1}/${workspaces.length}: ${ws.cwd} (${ws.sessions.length} sessions, ${entryCount} entries)...`
+        );
+
+        try {
+          const response = await withRetry(() =>
+            client.sync(collectorId, { syncRunId, workspaces: [ws] })
+          );
+          totalEntriesCreated += response.entriesCreated;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error(`Failed to sync workspace ${ws.cwd}: ${message}`);
+          result.errors.push(`Workspace ${ws.cwd}: ${message}`);
+          batchErrors++;
+        }
+      }
+
+      logger.info(
+        `Sync complete: ${totalEntriesCreated} entries created, ${totalCommitsCreated} commits created`
+      );
+
+      // Send final heartbeat
       try {
-        const response = await withRetry(() =>
-          client.sync(collectorId, syncRequest)
-        );
-
-        logger.info(
-          `Sync complete: ${response.entriesCreated} entries created, ${response.commitsCreated} commits created`
-        );
-
-        // Send success heartbeat
-        try {
-          await client.heartbeat(collectorId, {
-            syncRunId,
-            syncStatus: result.errors.length > 0 ? "partial" : "success",
-          });
-        } catch {
-          // Ignore heartbeat errors
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        logger.error(`Failed to sync data: ${message}`);
-        result.errors.push(`Sync failed: ${message}`);
-
-        // Send error heartbeat
-        try {
-          await client.heartbeat(collectorId, {
-            syncRunId,
-            syncStatus: "error",
-          });
-        } catch {
-          // Ignore heartbeat errors
-        }
+        const status = batchErrors > 0
+          ? (batchErrors < gitRepos.length + workspaces.length ? "partial" : "error")
+          : "success";
+        await client.heartbeat(collectorId, { syncRunId, syncStatus: status });
+      } catch {
+        // Ignore heartbeat errors
       }
     } else {
       logger.info("No changes to sync");

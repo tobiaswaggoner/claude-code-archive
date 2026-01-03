@@ -620,7 +620,8 @@ describe("runSync", () => {
       const result = await runSync(config, baseArgs);
 
       expect(result.errors.length).toBeGreaterThanOrEqual(1);
-      expect(result.errors.some((e) => e.includes("Sync failed"))).toBe(true);
+      // With batch sync, errors are per-workspace now
+      expect(result.errors.some((e) => e.includes("Workspace") && e.includes("Server error"))).toBe(true);
     });
   });
 
