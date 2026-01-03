@@ -2,7 +2,14 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
-import { Container, ContainerContext, TOKENS, container, MockAuthService } from "@/core";
+import {
+  Container,
+  ContainerContext,
+  TOKENS,
+  container,
+  MockAuthService,
+  BetterAuthService,
+} from "@/core";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
@@ -13,11 +20,20 @@ interface ProvidersProps {
 }
 
 /**
+ * Auth mode: "mock" uses demo credentials, "backend" connects to Better Auth
+ */
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? "mock";
+
+/**
  * Register default services in the container
  */
 function registerServices(target: Container) {
-  // Auth - using mock for now
-  target.register(TOKENS.AuthService, () => new MockAuthService());
+  // Auth - conditional based on feature flag
+  if (AUTH_MODE === "backend") {
+    target.register(TOKENS.AuthService, () => new BetterAuthService());
+  } else {
+    target.register(TOKENS.AuthService, () => new MockAuthService());
+  }
 
   // TODO: Register other services when needed
   // target.register(TOKENS.ApiClient, () => new ApiClient());

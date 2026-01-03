@@ -1,7 +1,7 @@
 // DI Container
-export { TOKENS, container, ContainerContext, useInject } from "./di";
+export { TOKENS, container, Container, ContainerContext, useInject } from "./di";
 export type { TokenKey, Factory } from "./di";
 
 // Auth
-export { useAuth, MockAuthService } from "./auth";
+export { useAuth, MockAuthService, BetterAuthService } from "./auth";
 export type { User, Session, AuthService, AuthState } from "./auth";

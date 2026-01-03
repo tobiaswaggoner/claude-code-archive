@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   Archive,
+  AlertTriangle,
 } from "lucide-react";
 
 import {
@@ -35,8 +36,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/core";
 import { ThemeToggle } from "./theme-toggle";
+
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? "mock";
+const IS_MOCK_MODE = AUTH_MODE !== "backend";
 
 const navItems = {
   archive: [
@@ -146,6 +155,25 @@ export function AppSidebar() {
       {/* Footer with Theme Toggle and User Menu */}
       <SidebarFooter className="p-2">
         <Separator className="mb-2" />
+
+        {/* Mock Mode Warning */}
+        {IS_MOCK_MODE && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md bg-orange-500/10 text-orange-500 text-xs font-medium group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-1">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Mock Mode
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Using mock authentication</p>
+              <p className="text-muted-foreground">Set NEXT_PUBLIC_AUTH_MODE=backend to connect</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
         <div className="flex items-center justify-between mb-2 group-data-[collapsible=icon]:justify-center">
           <ThemeToggle />
         </div>
