@@ -15,6 +15,7 @@ packages/
 
 ## Key Files
 
+- `docs/db-schema.md` - Database schema (8 tables)
 - `docs/jsonl-reference.md` - JSONL format documentation with TypeScript types
 - `docs/status.md` - Project history and next steps
 - `docs/idea.md` - Original requirements (German)
@@ -38,11 +39,13 @@ const full = await parseFullSession(projectDir, sessionId);
 
 ## Database
 
-PostgreSQL with JSONB. Connection via environment:
+PostgreSQL with JSONB. See `docs/db-schema.md` for full schema.
 
 ```
 DATABASE_URL=postgresql://user:pass@host:5432/claude_archive
 ```
+
+**Local Development:** PostgreSQL on `minix-k8s` (Tailscale), namespace `development`.
 
 ## Development
 
