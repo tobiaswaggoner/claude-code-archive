@@ -13,6 +13,8 @@ import {
   ApiClient,
 } from "@/core";
 import { ProjectsService } from "@/features/projects";
+import { SessionsService } from "@/features/sessions";
+import { ActivityService } from "@/features/activity";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
@@ -55,6 +57,14 @@ function registerServices(target: Container) {
   target.register(
     TOKENS.ProjectsService,
     () => new ProjectsService(target.resolve(TOKENS.ApiClient))
+  );
+  target.register(
+    TOKENS.SessionsService,
+    () => new SessionsService(target.resolve(TOKENS.ApiClient))
+  );
+  target.register(
+    TOKENS.ActivityService,
+    () => new ActivityService(target.resolve(TOKENS.ApiClient))
   );
 }
 

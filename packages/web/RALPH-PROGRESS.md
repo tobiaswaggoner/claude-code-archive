@@ -1,26 +1,27 @@
 # Ralph Wiggum Progress
 
-## MVP Status: 2/4 complete
+## MVP Status: 4/4 complete
 
 ### MVP Checklist:
 - [x] Navigation & Layout - DONE (Sidebar with sections: Archive, Git, System)
 - [x] Projektliste (mit Filterung) - DONE (Table with search, 173 projects loaded)
-- [ ] Konversations-Viewer - IN PROGRESS
-- [ ] Zeitliche Übersicht - TODO
+- [x] Konversations-Viewer - DONE (Session list + detail view with infinite scroll)
+- [x] Zeitliche Übersicht - DONE (GitHub-style activity heatmap)
 
-## Current Iteration: 1
-Working on: Session/Conversation Viewer
+## Current Iteration: 2
+Working on: Post-MVP features for UI-COMPLETE
 Status: In Progress
 
 ## Completed Features:
 1. Navigation & Layout - Iteration 1 - Sidebar navigation with sections, theme toggle, user menu
 2. Projects List - Iteration 1 - Table view with search, session/repo/workspace counts, relative time, GitHub links
+3. Session List - Iteration 1 - Table with project/host, entry/agent counts, models, tokens, time
+4. Session Viewer - Iteration 1 - Header with stats, entries with role-based styling, infinite scroll
+5. Activity Heatmap - Iteration 2 - GitHub-style contribution graph showing session activity (606 sessions, 51k entries, 10M tokens)
 
-## Next Up:
-1. Sessions page (list all sessions)
-2. Session detail page with entries viewer
-3. Markdown rendering for assistant messages
-4. Activity timeline/heatmap
+## Next Up (for UI-COMPLETE):
+1. Markdown rendering for assistant messages (code highlighting)
+2. Dashboard with real stats from API
 
 ## Decisions Made:
 - Using BetterAuth for authentication (NEXT_PUBLIC_AUTH_MODE=backend)

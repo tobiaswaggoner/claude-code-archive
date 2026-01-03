@@ -13,6 +13,7 @@ export const TOKENS = {
   ProjectsService: Symbol.for("ProjectsService"),
   SessionsService: Symbol.for("SessionsService"),
   CollectorsService: Symbol.for("CollectorsService"),
+  ActivityService: Symbol.for("ActivityService"),
 } as const;
 
 export type TokenKey = keyof typeof TOKENS;

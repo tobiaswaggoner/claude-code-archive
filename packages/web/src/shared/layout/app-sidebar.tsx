@@ -12,6 +12,7 @@ import {
   LogOut,
   Archive,
   AlertTriangle,
+  CalendarDays,
 } from "lucide-react";
 
 import {
@@ -51,6 +52,7 @@ const navItems = {
   archive: [
     { title: "Projects", url: "/projects", icon: FolderOpen },
     { title: "Sessions", url: "/sessions", icon: MessageSquare },
+    { title: "Activity", url: "/activity", icon: CalendarDays },
   ],
   git: [
     { title: "Repositories", url: "/repos", icon: GitBranch },
