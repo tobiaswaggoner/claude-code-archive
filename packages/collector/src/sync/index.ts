@@ -51,6 +51,9 @@ export const retryConfig = {
   delayMs: 1000,
 };
 
+/** Maximum sessions per request to avoid server heap overflow */
+export const SESSION_BATCH_SIZE = 50;
+
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -372,32 +375,54 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
         }
       }
 
-      // Send each workspace individually (they can have many entries)
+      // Send each workspace individually, chunking large workspaces to avoid heap overflow
       for (let i = 0; i < workspaces.length; i++) {
         const ws = workspaces[i];
-        const entryCount = ws.sessions.reduce((sum, s) => sum + s.entries.length, 0);
+        const totalSessions = ws.sessions.length;
+        const totalEntries = ws.sessions.reduce((sum, s) => sum + s.entries.length, 0);
 
-        logger.debug(
-          `Sending workspace ${i + 1}/${workspaces.length}: ${ws.cwd} (${ws.sessions.length} sessions, ${entryCount} entries)...`
-        );
+        // Chunk large workspaces into batches of SESSION_BATCH_SIZE
+        const numChunks = Math.ceil(totalSessions / SESSION_BATCH_SIZE);
 
-        try {
-          const response = await withRetry(() =>
-            client.sync(collectorId, { syncRunId, workspaces: [ws] })
-          );
-          totalEntriesCreated += response.entriesCreated;
-        } catch (error) {
-          let message = error instanceof Error ? error.message : String(error);
-          // Include API error body details if available
-          if (error instanceof ApiError && error.body) {
-            const bodyStr = typeof error.body === "object"
-              ? JSON.stringify(error.body, null, 2)
-              : String(error.body);
-            message += `\n  Response: ${bodyStr}`;
+        for (let chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
+          const startIdx = chunkIdx * SESSION_BATCH_SIZE;
+          const endIdx = Math.min(startIdx + SESSION_BATCH_SIZE, totalSessions);
+          const sessionChunk = ws.sessions.slice(startIdx, endIdx);
+          const chunkEntryCount = sessionChunk.reduce((sum, s) => sum + s.entries.length, 0);
+
+          // Build chunk workspace with same metadata but subset of sessions
+          const chunkWorkspace: SyncWorkspace = {
+            host: ws.host,
+            cwd: ws.cwd,
+            claudeProjectPath: ws.claudeProjectPath,
+            sessions: sessionChunk,
+          };
+
+          const logPrefix = numChunks > 1
+            ? `Sending workspace ${i + 1}/${workspaces.length}: ${ws.cwd} (chunk ${chunkIdx + 1}/${numChunks}, ${sessionChunk.length} sessions, ${chunkEntryCount} entries)...`
+            : `Sending workspace ${i + 1}/${workspaces.length}: ${ws.cwd} (${totalSessions} sessions, ${totalEntries} entries)...`;
+
+          logger.debug(logPrefix);
+
+          try {
+            const response = await withRetry(() =>
+              client.sync(collectorId, { syncRunId, workspaces: [chunkWorkspace] })
+            );
+            totalEntriesCreated += response.entriesCreated;
+          } catch (error) {
+            let message = error instanceof Error ? error.message : String(error);
+            // Include API error body details if available
+            if (error instanceof ApiError && error.body) {
+              const bodyStr = typeof error.body === "object"
+                ? JSON.stringify(error.body, null, 2)
+                : String(error.body);
+              message += `\n  Response: ${bodyStr}`;
+            }
+            const errorSuffix = numChunks > 1 ? ` (chunk ${chunkIdx + 1}/${numChunks})` : "";
+            logger.error(`Failed to sync workspace ${ws.cwd}${errorSuffix}: ${message}`);
+            result.errors.push(`Workspace ${ws.cwd}${errorSuffix}: ${message}`);
+            batchErrors++;
           }
-          logger.error(`Failed to sync workspace ${ws.cwd}: ${message}`);
-          result.errors.push(`Workspace ${ws.cwd}: ${message}`);
-          batchErrors++;
         }
       }
 
