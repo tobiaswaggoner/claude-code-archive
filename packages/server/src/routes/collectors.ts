@@ -9,6 +9,7 @@ import {
   session,
   entry,
   project,
+  gitRepo,
   gitCommit,
 } from "../db/schema/index.js";
 import {
@@ -196,21 +197,19 @@ const commitStateRoute = createRoute({
   method: "get",
   path: "/collectors/{id}/commit-state",
   tags: ["collectors"],
-  summary: "Get known commit SHAs for a project",
+  summary: "Get known commit SHAs for a git repo",
   description:
-    "Returns all known commit SHAs for a project by upstream URL, used for delta sync",
+    "Returns all known commit SHAs for a git repo by host and path, used for delta sync",
   request: {
     params: z.object({ id: z.string().uuid() }),
     query: z.object({
-      upstreamUrl: z
-        .string()
-        .min(1)
-        .openapi({ description: "Normalized upstream URL (e.g., github.com/user/repo)" }),
+      host: z.string().min(1).openapi({ description: "Hostname of the machine" }),
+      path: z.string().min(1).openapi({ description: "Absolute path to the git repo" }),
     }),
   },
   responses: {
     200: {
-      description: "Known commit SHAs for the project",
+      description: "Known commit SHAs for the git repo",
       content: { "application/json": { schema: commitStateResponseSchema } },
     },
   },
@@ -413,26 +412,32 @@ export function createCollectorRoutes() {
     return c.json({ sessions: result }, 200);
   });
 
-  // Get known commit SHAs for a project
+  // Get known commit SHAs for a git repo
   app.openapi(commitStateRoute, async (c) => {
-    const { upstreamUrl } = c.req.valid("query");
+    const { host, path } = c.req.valid("query");
 
-    // Find project by upstream URL
-    const [proj] = await db
+    console.log(`[commit-state] Looking up git_repo for host="${host}", path="${path}"`);
+
+    // Find git_repo by host + path
+    const [repo] = await db
       .select()
-      .from(project)
-      .where(eq(project.upstreamUrl, upstreamUrl));
+      .from(gitRepo)
+      .where(and(eq(gitRepo.host, host), eq(gitRepo.path, path)));
 
-    if (!proj) {
-      // Return empty array if project not found
+    if (!repo) {
+      console.log(`[commit-state] Git repo NOT FOUND`);
       return c.json({ knownShas: [] }, 200);
     }
+
+    console.log(`[commit-state] Found git_repo id=${repo.id}, project_id=${repo.projectId}`);
 
     // Get all commit SHAs for this project
     const commits = await db
       .select({ sha: gitCommit.sha })
       .from(gitCommit)
-      .where(eq(gitCommit.projectId, proj.id));
+      .where(eq(gitCommit.projectId, repo.projectId));
+
+    console.log(`[commit-state] Returning ${commits.length} known SHAs`);
 
     return c.json({ knownShas: commits.map((c) => c.sha) }, 200);
   });

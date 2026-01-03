@@ -129,8 +129,8 @@ describe("Collector State Endpoints", () => {
     const collectorId = "00000000-0000-0000-0000-000000000001";
     const projectId = "00000000-0000-0000-0000-000000000003";
 
-    it("returns empty knownShas array when project not found", async () => {
-      // Mock project query returning empty array
+    it("returns empty knownShas array when git repo not found", async () => {
+      // Mock git_repo query returning empty array
       const mockFrom = vi.fn().mockReturnThis();
       const mockWhere = vi.fn().mockResolvedValue([]);
       (db.select as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -140,7 +140,7 @@ describe("Collector State Endpoints", () => {
       mockFrom.mockReturnValue({ where: mockWhere });
 
       const res = await app.request(
-        `/collectors/${collectorId}/commit-state?upstreamUrl=github.com/user/repo`
+        `/collectors/${collectorId}/commit-state?host=my-host&path=/home/user/repo`
       );
 
       expect(res.status).toBe(200);
@@ -148,9 +148,9 @@ describe("Collector State Endpoints", () => {
       expect(body).toEqual({ knownShas: [] });
     });
 
-    it("returns known commit SHAs for a project", async () => {
-      // First call returns project
-      const projectResult = [{ id: projectId }];
+    it("returns known commit SHAs for a git repo", async () => {
+      // First call returns git_repo
+      const gitRepoResult = [{ id: "repo-id", projectId: projectId }];
 
       // Second call returns commits
       const commitsResult = [
@@ -163,10 +163,10 @@ describe("Collector State Endpoints", () => {
       const mockSelect = vi.fn().mockImplementation(() => {
         const call = callCount++;
         if (call === 0) {
-          // Project query
+          // git_repo query
           return {
             from: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue(projectResult),
+              where: vi.fn().mockResolvedValue(gitRepoResult),
             }),
           };
         } else {
@@ -182,7 +182,7 @@ describe("Collector State Endpoints", () => {
       (db.select as ReturnType<typeof vi.fn>).mockImplementation(mockSelect);
 
       const res = await app.request(
-        `/collectors/${collectorId}/commit-state?upstreamUrl=github.com/user/repo`
+        `/collectors/${collectorId}/commit-state?host=my-host&path=/home/user/repo`
       );
 
       expect(res.status).toBe(200);
@@ -192,7 +192,7 @@ describe("Collector State Endpoints", () => {
       });
     });
 
-    it("requires upstreamUrl query parameter", async () => {
+    it("requires host and path query parameters", async () => {
       const res = await app.request(
         `/collectors/${collectorId}/commit-state`
       );

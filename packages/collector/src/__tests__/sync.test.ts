@@ -742,7 +742,8 @@ describe("runSync", () => {
       expect(discoverGitRepos).toHaveBeenCalled();
       expect(discoverWorkspaces).toHaveBeenCalled();
       expect(result.gitReposProcessed).toBe(1);
-      expect(result.gitReposSynced).toBe(1);
+      // gitReposSynced is 0 because extractCommits returns [] (no new commits)
+      expect(result.gitReposSynced).toBe(0);
     });
   });
 

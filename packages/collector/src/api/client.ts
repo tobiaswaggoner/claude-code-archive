@@ -160,18 +160,19 @@ export class ApiClient {
   }
 
   /**
-   * Get the known commit SHAs for a repository.
+   * Get the known commit SHAs for a git repository.
    * Used for delta sync to determine which commits have already been synced.
    */
   async getCommitState(
     collectorId: string,
-    upstreamUrl: string
+    host: string,
+    path: string
   ): Promise<CommitStateResponse> {
     return this.request<CommitStateResponse>(
       "GET",
       `/api/collectors/${collectorId}/commit-state`,
       {
-        query: { upstreamUrl },
+        query: { host, path },
       }
     );
   }

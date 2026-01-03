@@ -208,7 +208,8 @@ describe("ApiClient", () => {
 
       const result = await client.getCommitState(
         collectorId,
-        "https://github.com/user/repo.git"
+        "my-host",
+        "/home/user/repo"
       );
 
       expect(mockFetch).toHaveBeenCalledOnce();
@@ -217,9 +218,8 @@ describe("ApiClient", () => {
       expect(parsedUrl.pathname).toBe(
         `/api/collectors/${collectorId}/commit-state`
       );
-      expect(parsedUrl.searchParams.get("upstreamUrl")).toBe(
-        "https://github.com/user/repo.git"
-      );
+      expect(parsedUrl.searchParams.get("host")).toBe("my-host");
+      expect(parsedUrl.searchParams.get("path")).toBe("/home/user/repo");
       expect(options.method).toBe("GET");
       expect(result).toEqual(responseData);
     });

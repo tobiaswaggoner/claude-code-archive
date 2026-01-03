@@ -188,18 +188,21 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
           // Get known commit SHAs from server (for delta sync)
           let knownShas = new Set<string>();
 
-          if (!args.dryRun && repo.upstreamUrl) {
+          if (!args.dryRun) {
             try {
+              logger.debug(`Getting commit state for host="${host}", path="${repo.path}"`);
               const commitState = await client.getCommitState(
                 collectorId,
-                repo.upstreamUrl
+                host,
+                repo.path
               );
               knownShas = new Set(commitState.knownShas);
               logger.debug(`Server knows ${knownShas.size} commits for ${repo.path}`);
             } catch (error) {
               // If we can't get commit state, sync all commits
+              const msg = error instanceof Error ? error.message : String(error);
               logger.debug(
-                `Could not get commit state for ${repo.path}, will sync all commits`
+                `Could not get commit state for ${repo.path}: ${msg}, will sync all commits`
               );
             }
           }
