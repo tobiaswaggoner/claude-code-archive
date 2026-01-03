@@ -1,0 +1,20 @@
+{
+  "name": "claude-code-archive",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Archive and analyze Claude Code conversation logs",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}
