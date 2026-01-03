@@ -15,6 +15,35 @@ import {
 import { syncDataSchema, errorSchema } from "./schemas.js";
 import { normalizeUpstreamUrl } from "../lib/utils.js";
 
+/**
+ * Recursively remove null bytes from JSON data.
+ * PostgreSQL JSONB cannot store \u0000 characters.
+ */
+function sanitizeJsonData(data: unknown): unknown {
+  if (data === null || data === undefined) {
+    return data;
+  }
+
+  if (typeof data === "string") {
+    // Remove null bytes and other problematic control characters
+    return data.replace(/\u0000/g, "");
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(sanitizeJsonData);
+  }
+
+  if (typeof data === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[key] = sanitizeJsonData(value);
+    }
+    return result;
+  }
+
+  return data;
+}
+
 const syncRoute = createRoute({
   method: "post",
   path: "/collectors/{id}/sync",
@@ -392,7 +421,7 @@ export function createSyncRoutes() {
                   type: ent.type,
                   subtype: ent.subtype,
                   timestamp: ent.timestamp ? new Date(ent.timestamp) : null,
-                  data: ent.data,
+                  data: sanitizeJsonData(ent.data),
                 })
                 .returning();
               stats.entriesCreated++;
@@ -405,7 +434,10 @@ export function createSyncRoutes() {
                     toolUseId: tr.toolUseId,
                     toolName: tr.toolName,
                     contentType: tr.contentType,
-                    contentText: tr.contentText,
+                    // Sanitize text content to remove null bytes
+                    contentText: tr.contentText
+                      ? (sanitizeJsonData(tr.contentText) as string)
+                      : null,
                     contentBinary: tr.contentBinary
                       ? Buffer.from(tr.contentBinary, "base64")
                       : null,
