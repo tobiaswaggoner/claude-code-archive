@@ -326,6 +326,7 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
         const batch = gitRepos.slice(i, i + GIT_BATCH_SIZE);
         const batchNum = Math.floor(i / GIT_BATCH_SIZE) + 1;
         const totalBatches = Math.ceil(gitRepos.length / GIT_BATCH_SIZE);
+        const repoPaths = batch.map((r) => r.path).join(", ");
 
         logger.debug(`Sending git repos batch ${batchNum}/${totalBatches} (${batch.length} repos)...`);
 
@@ -335,8 +336,16 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
           );
           totalCommitsCreated += response.commitsCreated;
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          let message = error instanceof Error ? error.message : String(error);
+          // Include API error body details if available
+          if (error instanceof ApiError && error.body) {
+            const bodyStr = typeof error.body === "object"
+              ? JSON.stringify(error.body, null, 2)
+              : String(error.body);
+            message += `\n  Response: ${bodyStr}`;
+          }
           logger.error(`Failed to sync git batch ${batchNum}: ${message}`);
+          logger.error(`  Repos in batch: ${repoPaths}`);
           result.errors.push(`Git batch ${batchNum}: ${message}`);
           batchErrors++;
         }
@@ -357,7 +366,14 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
           );
           totalEntriesCreated += response.entriesCreated;
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          let message = error instanceof Error ? error.message : String(error);
+          // Include API error body details if available
+          if (error instanceof ApiError && error.body) {
+            const bodyStr = typeof error.body === "object"
+              ? JSON.stringify(error.body, null, 2)
+              : String(error.body);
+            message += `\n  Response: ${bodyStr}`;
+          }
           logger.error(`Failed to sync workspace ${ws.cwd}: ${message}`);
           result.errors.push(`Workspace ${ws.cwd}: ${message}`);
           batchErrors++;
