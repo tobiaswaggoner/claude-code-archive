@@ -8,7 +8,7 @@ Multi-host archive and analysis system for Claude Code conversation logs.
 packages/
 ├── parser/      # @claude-archive/parser - Zod-based JSONL parser
 ├── server/      # API server (PostgreSQL backend)
-├── collector/   # Host sync daemon
+├── collector/   # CLI sync tool (manual or cron)
 ├── runner/      # Headless session control
 └── web/         # NextJS UI (later)
 ```
@@ -65,6 +65,40 @@ pnpm db:migrate   # Apply migrations
 - `GET /api/projects` - List projects
 - `GET /api/sessions` - List sessions
 - `GET /api/entries/{id}` - Get entry
+- `GET /api/collectors/{id}/session-state` - Session state for delta sync
+- `GET /api/collectors/{id}/commit-state` - Commit state for delta sync
+
+## Collector
+
+CLI tool for syncing Claude Code sessions and Git repositories to the server.
+
+```bash
+# Sync only Claude sessions (from ~/.claude/projects)
+collector sync
+
+# Sync Claude sessions + Git repos from specified directories
+collector sync --source-dir=/home/user/src --source-dir=/home/user/projects
+
+# Options
+collector sync --verbose      # Debug output
+collector sync --dry-run      # Preview without sending
+collector sync --help         # Show help
+```
+
+**Environment Variables:**
+```bash
+CLAUDE_ARCHIVE_SERVER_URL=https://archive.example.com  # Required
+CLAUDE_ARCHIVE_API_KEY=your-api-key                    # Required
+CLAUDE_ARCHIVE_COLLECTOR_NAME=my-desktop               # Optional (default: hostname)
+CLAUDE_ARCHIVE_LOG_LEVEL=debug                         # Optional (default: info)
+```
+
+**Features:**
+- Auto-registration with server on first run
+- Delta sync: only sends new entries/commits
+- Git repo discovery with branch tracking (ahead/behind)
+- Tool results synchronization (text and binary)
+- Graceful error handling (continues on individual failures)
 
 ## Database
 

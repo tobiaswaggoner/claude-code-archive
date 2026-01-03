@@ -224,3 +224,18 @@ export const runLogCreateSchema = z.object({
   message: z.string(),
   context: z.record(z.unknown()).optional(),
 });
+
+// Collector state schemas (for delta sync)
+export const sessionStateItemSchema = z.object({
+  originalSessionId: z.string(),
+  entryCount: z.number(),
+  lastLineNumber: z.number(),
+});
+
+export const sessionStateResponseSchema = z.object({
+  sessions: z.array(sessionStateItemSchema),
+});
+
+export const commitStateResponseSchema = z.object({
+  knownShas: z.array(z.string()),
+});

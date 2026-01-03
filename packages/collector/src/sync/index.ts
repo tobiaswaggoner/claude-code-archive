@@ -1,0 +1,383 @@
+/**
+ * Sync orchestration module.
+ * Coordinates git repository and Claude session synchronization.
+ */
+
+import { randomUUID } from "node:crypto";
+import { hostname } from "node:os";
+import { release, platform } from "node:os";
+import type { Config } from "../config.js";
+import type { CliArgs } from "../cli.js";
+import { ApiClient, ApiError } from "../api/client.js";
+import { getOrCreateCollectorId } from "../collector-id.js";
+import { Logger } from "../lib/logger.js";
+import {
+  discoverGitRepos,
+  extractBranches,
+  extractCommits,
+  buildSyncGitRepo,
+  normalizeUpstreamUrl,
+} from "./git.js";
+import { discoverWorkspaces, buildSyncWorkspace, type SessionState } from "./sessions.js";
+import type { SyncRequest, SyncGitRepo, SyncWorkspace } from "../api/types.js";
+
+// =============================================================================
+// Types
+// =============================================================================
+
+/**
+ * Result of a sync run.
+ */
+export interface SyncResult {
+  syncRunId: string;
+  gitReposProcessed: number;
+  gitReposSynced: number;
+  commitsFound: number;
+  workspacesProcessed: number;
+  workspacesSynced: number;
+  sessionsFound: number;
+  entriesFound: number;
+  errors: string[];
+  dryRun: boolean;
+}
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+/** Maximum retry attempts for network operations */
+const MAX_RETRIES = 3;
+
+/** Delay between retries in milliseconds */
+const RETRY_DELAY_MS = 1000;
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Sleep for a given number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Retry a function with exponential backoff.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = MAX_RETRIES,
+  delayMs: number = RETRY_DELAY_MS
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry on 4xx errors (client errors)
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+        throw error;
+      }
+
+      // Don't retry on last attempt
+      if (attempt < maxRetries) {
+        await sleep(delayMs * attempt);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+// =============================================================================
+// Main Sync Function
+// =============================================================================
+
+/**
+ * Run the sync process.
+ *
+ * @param config - The collector configuration
+ * @param args - CLI arguments
+ * @returns The sync result with statistics and errors
+ */
+export async function runSync(config: Config, args: CliArgs): Promise<SyncResult> {
+  // Initialize
+  const logger = new Logger(args.verbose ? "debug" : config.logLevel);
+  const client = new ApiClient(config);
+  const syncRunId = randomUUID();
+  const collectorId = getOrCreateCollectorId();
+  const host = hostname();
+
+  const result: SyncResult = {
+    syncRunId,
+    gitReposProcessed: 0,
+    gitReposSynced: 0,
+    commitsFound: 0,
+    workspacesProcessed: 0,
+    workspacesSynced: 0,
+    sessionsFound: 0,
+    entriesFound: 0,
+    errors: [],
+    dryRun: args.dryRun,
+  };
+
+  // Collected sync data
+  const gitRepos: SyncGitRepo[] = [];
+  const workspaces: SyncWorkspace[] = [];
+
+  // ==========================================================================
+  // Step 1: Register with Server
+  // ==========================================================================
+  if (!args.dryRun) {
+    try {
+      logger.info("Registering collector...");
+      await withRetry(() =>
+        client.register({
+          id: collectorId,
+          name: config.collectorName,
+          hostname: host,
+          osInfo: `${platform()} ${release()}`,
+          version: "1.0.0",
+        })
+      );
+      logger.info(`Registered as ${collectorId}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown registration error";
+      logger.error(`Failed to register: ${message}`);
+      result.errors.push(`Registration failed: ${message}`);
+      // Continue with sync attempt
+    }
+  } else {
+    logger.info("[DRY RUN] Would register collector");
+  }
+
+  // ==========================================================================
+  // Step 2: Send Initial Heartbeat
+  // ==========================================================================
+  if (!args.dryRun) {
+    try {
+      await withRetry(() => client.heartbeat(collectorId, { syncRunId }));
+      logger.debug("Sent initial heartbeat");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown heartbeat error";
+      logger.warn(`Failed to send initial heartbeat: ${message}`);
+      // Non-fatal, continue
+    }
+  }
+
+  // ==========================================================================
+  // Step 3: Git Repository Sync
+  // ==========================================================================
+  if (args.sourceDirs.length > 0) {
+    logger.info(
+      `Discovering Git repositories in ${args.sourceDirs.length} directories...`
+    );
+
+    try {
+      const repos = await discoverGitRepos(args.sourceDirs);
+      logger.info(`Found ${repos.length} Git repositories`);
+
+      for (const repo of repos) {
+        result.gitReposProcessed++;
+        logger.debug(`Processing ${repo.path}...`);
+
+        try {
+          // Get known commit SHAs from server (for delta sync)
+          let knownShas = new Set<string>();
+
+          if (!args.dryRun && repo.upstreamUrl) {
+            try {
+              const commitState = await client.getCommitState(
+                collectorId,
+                repo.upstreamUrl
+              );
+              knownShas = new Set(commitState.knownShas);
+              logger.debug(`Server knows ${knownShas.size} commits for ${repo.path}`);
+            } catch (error) {
+              // If we can't get commit state, sync all commits
+              logger.debug(
+                `Could not get commit state for ${repo.path}, will sync all commits`
+              );
+            }
+          }
+
+          // Extract branches and commits
+          const branches = await extractBranches(repo.path);
+          const commits = await extractCommits(repo.path, knownShas);
+
+          // Only include repos that have changes
+          if (branches.length > 0 || commits.length > 0 || repo.isDirty) {
+            const syncRepo = buildSyncGitRepo(repo, branches, commits);
+            gitRepos.push(syncRepo);
+            result.gitReposSynced++;
+            result.commitsFound += commits.length;
+            logger.debug(
+              `Repo ${repo.path}: ${branches.length} branches, ${commits.length} new commits`
+            );
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error(`Error processing ${repo.path}: ${message}`);
+          result.errors.push(`Git repo ${repo.path}: ${message}`);
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`Error discovering git repos: ${message}`);
+      result.errors.push(`Git discovery: ${message}`);
+    }
+  } else {
+    logger.debug("No source directories specified, skipping Git sync");
+  }
+
+  // ==========================================================================
+  // Step 4: Claude Session Sync
+  // ==========================================================================
+  logger.info("Discovering Claude workspaces...");
+
+  try {
+    const projects = await discoverWorkspaces();
+    logger.info(`Found ${projects.length} workspaces`);
+
+    for (const project of projects) {
+      result.workspacesProcessed++;
+      logger.debug(`Processing workspace ${project.originalPath}...`);
+
+      try {
+        // Get session state from server (for delta sync)
+        const knownSessionState = new Map<string, SessionState>();
+
+        if (!args.dryRun) {
+          try {
+            const sessionState = await client.getSessionState(
+              collectorId,
+              host,
+              project.originalPath
+            );
+
+            for (const session of sessionState.sessions) {
+              knownSessionState.set(session.originalSessionId, {
+                originalSessionId: session.originalSessionId,
+                entryCount: session.entryCount,
+                lastLineNumber: session.lastLineNumber,
+              });
+            }
+
+            logger.debug(
+              `Server knows ${knownSessionState.size} sessions for ${project.originalPath}`
+            );
+          } catch (error) {
+            // If we can't get session state, sync all sessions
+            logger.debug(
+              `Could not get session state for ${project.originalPath}, will sync all sessions`
+            );
+          }
+        }
+
+        // Build sync workspace with delta entries
+        const workspace = await buildSyncWorkspace(project, knownSessionState);
+
+        // Only include workspaces that have sessions with new entries
+        if (workspace.sessions.length > 0) {
+          workspaces.push(workspace);
+          result.workspacesSynced++;
+          result.sessionsFound += workspace.sessions.length;
+
+          // Count entries
+          for (const session of workspace.sessions) {
+            result.entriesFound += session.entries.length;
+          }
+
+          logger.debug(
+            `Workspace ${project.originalPath}: ${workspace.sessions.length} sessions with new entries`
+          );
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`Error processing workspace ${project.originalPath}: ${message}`);
+        result.errors.push(`Workspace ${project.originalPath}: ${message}`);
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(`Error discovering workspaces: ${message}`);
+    result.errors.push(`Workspace discovery: ${message}`);
+  }
+
+  // ==========================================================================
+  // Step 5: Send Sync Data
+  // ==========================================================================
+  if (!args.dryRun) {
+    // Only send if we have data to sync
+    if (gitRepos.length > 0 || workspaces.length > 0) {
+      logger.info("Sending sync data...");
+
+      const syncRequest: SyncRequest = {
+        syncRunId,
+        gitRepos: gitRepos.length > 0 ? gitRepos : undefined,
+        workspaces: workspaces.length > 0 ? workspaces : undefined,
+      };
+
+      try {
+        const response = await withRetry(() =>
+          client.sync(collectorId, syncRequest)
+        );
+
+        logger.info(
+          `Sync complete: ${response.entriesCreated} entries created, ${response.commitsCreated} commits created`
+        );
+
+        // Send success heartbeat
+        try {
+          await client.heartbeat(collectorId, {
+            syncRunId,
+            syncStatus: result.errors.length > 0 ? "partial" : "success",
+          });
+        } catch {
+          // Ignore heartbeat errors
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to sync data: ${message}`);
+        result.errors.push(`Sync failed: ${message}`);
+
+        // Send error heartbeat
+        try {
+          await client.heartbeat(collectorId, {
+            syncRunId,
+            syncStatus: "error",
+          });
+        } catch {
+          // Ignore heartbeat errors
+        }
+      }
+    } else {
+      logger.info("No changes to sync");
+
+      // Send heartbeat indicating no changes
+      try {
+        await client.heartbeat(collectorId, {
+          syncRunId,
+          syncStatus: "success",
+        });
+      } catch {
+        // Ignore heartbeat errors
+      }
+    }
+  } else {
+    logger.info("[DRY RUN] Would send sync data:");
+    logger.info(`  Git repos: ${gitRepos.length}`);
+    logger.info(`  Workspaces: ${workspaces.length}`);
+    logger.info(`  Sessions: ${result.sessionsFound}`);
+    logger.info(`  Entries: ${result.entriesFound}`);
+    logger.info(`  Commits: ${result.commitsFound}`);
+  }
+
+  return result;
+}

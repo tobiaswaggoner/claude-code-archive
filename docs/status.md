@@ -2,6 +2,31 @@
 
 ## History
 
+### 2026-01-03 18:00 - Collector Package Implementation
+
+- Created `@claude-archive/collector` CLI package
+- Git repository discovery with recursive search
+- Branch tracking with ahead/behind counts
+- Delta sync: queries server for known entries/commits before syncing
+- Tool results synchronization (text and binary)
+- Server endpoints for delta detection:
+  - `GET /api/collectors/{id}/session-state`
+  - `GET /api/collectors/{id}/commit-state`
+- 168 total unit tests (36 server + 132 collector)
+
+**Usage:**
+```bash
+# Set environment
+export CLAUDE_ARCHIVE_SERVER_URL=http://localhost:4001
+export CLAUDE_ARCHIVE_API_KEY=your-key
+
+# Sync Claude sessions only
+collector sync
+
+# Sync with Git repos
+collector sync --source-dir=~/src
+```
+
 ### 2026-01-03 16:00 - Server Package Implementation
 
 - Created `@claude-archive/server` package with Hono API
@@ -59,16 +84,14 @@
 - [x] Project/Session/Entry read endpoints
 - [x] Unit tests
 
-### Step 2: Collector Package (`packages/collector`)
+### ~~Step 2: Collector Package (`packages/collector`)~~ DONE
 
-Sync daemon for each host:
-
-- [ ] Git repo discovery (configurable search paths)
-- [ ] Claude workspace discovery (`~/.claude/projects`)
-- [ ] Idempotent, incremental sync
-- [ ] Branch tracking with ahead/behind counts
-- [ ] Dirty working directory snapshots
-- [ ] Force-push detection
+- [x] Git repo discovery (configurable search paths)
+- [x] Claude workspace discovery (`~/.claude/projects`)
+- [x] Idempotent, incremental sync
+- [x] Branch tracking with ahead/behind counts
+- [x] Dirty working directory snapshots
+- [x] Tool results synchronization
 
 ### Step 3: Runner Package (`packages/runner`)
 

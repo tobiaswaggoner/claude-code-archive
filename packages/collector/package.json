@@ -1,0 +1,29 @@
+{
+  "name": "@claude-archive/collector",
+  "version": "0.1.0",
+  "description": "CLI for syncing Claude Code sessions to archive server",
+  "type": "module",
+  "bin": {
+    "collector": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@claude-archive/parser": "workspace:*",
+    "minimist": "^1.2.8",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,8 +1,16 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { eq } from "drizzle-orm";
+import { eq, and, max } from "drizzle-orm";
 import { db } from "../db/connection.js";
-import { collector, runLog } from "../db/schema/index.js";
+import {
+  collector,
+  runLog,
+  workspace,
+  session,
+  entry,
+  project,
+  gitCommit,
+} from "../db/schema/index.js";
 import {
   collectorSchema,
   collectorRegisterSchema,
@@ -11,6 +19,8 @@ import {
   runLogSchema,
   errorSchema,
   paginatedResponseSchema,
+  sessionStateResponseSchema,
+  commitStateResponseSchema,
 } from "./schemas.js";
 
 // Routes
@@ -160,6 +170,52 @@ const getLogsRoute = createRoute({
   },
 });
 
+const sessionStateRoute = createRoute({
+  method: "get",
+  path: "/collectors/{id}/session-state",
+  tags: ["collectors"],
+  summary: "Get session state for a workspace",
+  description:
+    "Returns sessions with entry counts for a specific workspace, used for delta sync",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    query: z.object({
+      host: z.string().min(1).openapi({ description: "Hostname" }),
+      cwd: z.string().min(1).openapi({ description: "Working directory path" }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Session state for the workspace",
+      content: { "application/json": { schema: sessionStateResponseSchema } },
+    },
+  },
+});
+
+const commitStateRoute = createRoute({
+  method: "get",
+  path: "/collectors/{id}/commit-state",
+  tags: ["collectors"],
+  summary: "Get known commit SHAs for a project",
+  description:
+    "Returns all known commit SHAs for a project by upstream URL, used for delta sync",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    query: z.object({
+      upstreamUrl: z
+        .string()
+        .min(1)
+        .openapi({ description: "Normalized upstream URL (e.g., github.com/user/repo)" }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Known commit SHAs for the project",
+      content: { "application/json": { schema: commitStateResponseSchema } },
+    },
+  },
+});
+
 export function createCollectorRoutes() {
   const app = new OpenAPIHono();
 
@@ -296,6 +352,79 @@ export function createCollectorRoutes() {
     }
 
     return c.json({ items: results.map(formatRunLog) }, 200);
+  });
+
+  // Get session state for a workspace
+  app.openapi(sessionStateRoute, async (c) => {
+    const { host, cwd } = c.req.valid("query");
+
+    // Find workspace by host + cwd
+    const [ws] = await db
+      .select()
+      .from(workspace)
+      .where(and(eq(workspace.host, host), eq(workspace.cwd, cwd)));
+
+    if (!ws) {
+      // Return empty array if workspace not found
+      return c.json({ sessions: [] }, 200);
+    }
+
+    // Get sessions with entry counts and max line numbers
+    const sessions = await db
+      .select({
+        originalSessionId: session.originalSessionId,
+        entryCount: session.entryCount,
+      })
+      .from(session)
+      .where(eq(session.workspaceId, ws.id));
+
+    // For each session, get the max line number from entries
+    const result = await Promise.all(
+      sessions.map(async (sess) => {
+        const [maxLine] = await db
+          .select({ maxLineNumber: max(entry.lineNumber) })
+          .from(entry)
+          .innerJoin(session, eq(entry.sessionId, session.id))
+          .where(
+            and(
+              eq(session.workspaceId, ws.id),
+              eq(session.originalSessionId, sess.originalSessionId)
+            )
+          );
+
+        return {
+          originalSessionId: sess.originalSessionId,
+          entryCount: sess.entryCount ?? 0,
+          lastLineNumber: maxLine?.maxLineNumber ?? 0,
+        };
+      })
+    );
+
+    return c.json({ sessions: result }, 200);
+  });
+
+  // Get known commit SHAs for a project
+  app.openapi(commitStateRoute, async (c) => {
+    const { upstreamUrl } = c.req.valid("query");
+
+    // Find project by upstream URL
+    const [proj] = await db
+      .select()
+      .from(project)
+      .where(eq(project.upstreamUrl, upstreamUrl));
+
+    if (!proj) {
+      // Return empty array if project not found
+      return c.json({ knownShas: [] }, 200);
+    }
+
+    // Get all commit SHAs for this project
+    const commits = await db
+      .select({ sha: gitCommit.sha })
+      .from(gitCommit)
+      .where(eq(gitCommit.projectId, proj.id));
+
+    return c.json({ knownShas: commits.map((c) => c.sha) }, 200);
   });
 
   return app;
