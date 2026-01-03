@@ -2,6 +2,28 @@
 
 ## History
 
+### 2026-01-03 18:00 - Standalone Collector Bundle
+
+Added standalone bundle for easy deployment without npm:
+
+- esbuild bundle script (`pnpm bundle`) creates 87 KB standalone CJS file
+- GitHub Actions workflow for automatic releases on `collector-v*` tags
+- Install script for curl-based deployment
+
+**Files:**
+- `packages/collector/scripts/bundle.mjs` - Bundle script
+- `.github/workflows/release-collector.yml` - Release workflow
+- `packages/collector/scripts/install.sh` - Install script
+
+**Usage:**
+```bash
+# Download
+curl -fsSL https://github.com/ORG/REPO/releases/latest/download/collector-latest.cjs -o collector.cjs
+
+# Cron job (every 5 min)
+*/5 * * * * CLAUDE_ARCHIVE_SERVER_URL=url CLAUDE_ARCHIVE_API_KEY=key node collector.cjs sync
+```
+
 ### 2026-01-03 17:45 - Sync State API Optimization
 
 Consolidated N+M delta-sync API calls into single call:
@@ -49,7 +71,7 @@ Successfully synced from both WSL and Windows collectors. Fixed several issues t
 
 **Idempotency confirmed:** Second sync run produced 0 new entries/commits.
 
-### 2026-01-03 18:00 - Collector Package Implementation
+### 2026-01-03 17:30 - Collector Package Implementation
 
 - Created `@claude-archive/collector` CLI package
 - Git repository discovery with recursive search
