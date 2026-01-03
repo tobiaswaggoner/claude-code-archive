@@ -18,7 +18,7 @@ import {
   buildSyncGitRepo,
   normalizeUpstreamUrl,
 } from "./git.js";
-import { discoverWorkspaces, buildSyncWorkspace, type SessionState } from "./sessions.js";
+import { discoverWorkspaces, buildSyncWorkspace, extractCwdFromSession, type SessionState } from "./sessions.js";
 import type { SyncRequest, SyncGitRepo, SyncWorkspace } from "../api/types.js";
 
 // =============================================================================
@@ -244,19 +244,28 @@ export async function runSync(config: Config, args: CliArgs): Promise<SyncResult
 
     for (const project of projects) {
       result.workspacesProcessed++;
-      logger.debug(`Processing workspace ${project.originalPath}...`);
 
       try {
+        // First, extract the real cwd from JSONL files (more reliable than decoded path)
+        let realCwd: string | null = null;
+        for (const sessionFile of project.sessions) {
+          realCwd = await extractCwdFromSession(sessionFile.path);
+          if (realCwd) break;
+        }
+        const workspaceCwd = realCwd || project.originalPath;
+
+        logger.debug(`Processing workspace ${workspaceCwd}...`);
+
         // Get session state from server (for delta sync)
         const knownSessionState = new Map<string, SessionState>();
 
         if (!args.dryRun) {
           try {
-            logger.debug(`Requesting session state for host="${host}", cwd="${project.originalPath}"`);
+            logger.debug(`Requesting session state for host="${host}", cwd="${workspaceCwd}"`);
             const sessionState = await client.getSessionState(
               collectorId,
               host,
-              project.originalPath
+              workspaceCwd
             );
 
             for (const session of sessionState.sessions) {
