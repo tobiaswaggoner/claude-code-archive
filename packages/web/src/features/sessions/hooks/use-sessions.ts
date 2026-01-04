@@ -67,3 +67,14 @@ export function useSessionEntriesInfinite(
     staleTime: 60_000,
   });
 }
+
+export function useSessionFirstEntry(sessionId: string) {
+  const sessionsService = useInject<SessionsService>(TOKENS.SessionsService);
+
+  return useQuery({
+    queryKey: ["session", sessionId, "first-entry"],
+    queryFn: () => sessionsService.getFirstEntry(sessionId),
+    enabled: !!sessionId,
+    staleTime: 60_000,
+  });
+}

@@ -3,6 +3,7 @@ import type {
   Session,
   SessionListParams,
   SessionListResponse,
+  Entry,
   EntryListParams,
   EntryListResponse,
 } from "../types/session";
@@ -26,5 +27,9 @@ export class SessionsService {
       `/api/sessions/${sessionId}/entries`,
       params as Record<string, string | number | boolean | undefined>
     );
+  }
+
+  async getFirstEntry(sessionId: string): Promise<Entry> {
+    return this.api.get<Entry>(`/api/sessions/${sessionId}/first-entry`);
   }
 }

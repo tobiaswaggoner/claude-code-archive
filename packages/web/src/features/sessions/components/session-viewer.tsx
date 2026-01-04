@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, useSessionEntriesInfinite } from "../hooks/use-sessions";
+import { useSession, useSessionEntriesInfinite, useSessionFirstEntry } from "../hooks/use-sessions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/markdown";
@@ -312,6 +312,7 @@ interface SessionViewerProps {
 
 export function SessionViewer({ sessionId }: SessionViewerProps) {
   const { data: session, isLoading: sessionLoading } = useSession(sessionId);
+  const { data: firstEntry } = useSessionFirstEntry(sessionId);
   const {
     data: entriesData,
     isLoading: entriesLoading,
@@ -352,14 +353,6 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
     // Reverse to get chronological order (oldest first)
     return [...allEntries].reverse();
   }, [entriesData]);
-
-  // Find the first real user message for pinning
-  const firstUserMessage = useMemo(() => {
-    return entries.find((e) => {
-      const category = categorizeEntry(e);
-      return category === "real-user";
-    });
-  }, [entries]);
 
   // Filter and optionally group entries based on filter settings
   const displayEntries = useMemo((): DisplayEntry[] => {
@@ -533,8 +526,8 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
         </div>
       </div>
 
-      {/* Pinned First User Message - only show when not all entries are loaded */}
-      {firstUserMessage && hasNextPage && (
+      {/* Pinned First Entry - only show when not all entries are loaded */}
+      {firstEntry && hasNextPage && (
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b mb-2 shrink-0">
           <div className="px-2 py-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
             <div className="flex gap-1.5">
@@ -545,23 +538,23 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  First loaded message (load all to see actual first)
+                  First message of session
                 </TooltipContent>
               </Tooltip>
               <div className="flex-1 min-w-0">
                 <CollapsibleContent maxHeight={60}>
                   <div className="text-sm">
-                    {hasXmlContent(getEntryContent(firstUserMessage)) ? (
-                      <FormattedXmlContent content={getEntryContent(firstUserMessage)} />
+                    {hasXmlContent(getEntryContent(firstEntry)) ? (
+                      <FormattedXmlContent content={getEntryContent(firstEntry)} />
                     ) : (
-                      <Markdown>{getEntryContent(firstUserMessage)}</Markdown>
+                      <Markdown>{getEntryContent(firstEntry)}</Markdown>
                     )}
                   </div>
                 </CollapsibleContent>
               </div>
-              {firstUserMessage.timestamp && session.firstEntryAt && (
+              {firstEntry.timestamp && (
                 <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0 mt-0.5">
-                  {formatCompactTime(firstUserMessage.timestamp)} {formatDelta(firstUserMessage.timestamp, session.firstEntryAt)}
+                  {formatCompactTime(firstEntry.timestamp)}
                 </span>
               )}
             </div>

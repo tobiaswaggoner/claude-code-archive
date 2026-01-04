@@ -115,6 +115,27 @@ const getSessionEntriesRoute = createRoute({
   },
 });
 
+const getSessionFirstEntryRoute = createRoute({
+  method: "get",
+  path: "/sessions/{id}/first-entry",
+  tags: ["entries"],
+  summary: "Get first entry of session",
+  description: "Get the first entry (by line number) of a session",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+  },
+  responses: {
+    200: {
+      description: "First entry of the session",
+      content: { "application/json": { schema: entrySchema } },
+    },
+    404: {
+      description: "No entries found",
+      content: { "application/json": { schema: errorSchema } },
+    },
+  },
+});
+
 const getEntryRoute = createRoute({
   method: "get",
   path: "/entries/{id}",
@@ -291,6 +312,24 @@ export function createSessionRoutes() {
       },
       200
     );
+  });
+
+  // Get first entry of session
+  app.openapi(getSessionFirstEntryRoute, async (c) => {
+    const { id } = c.req.valid("param");
+
+    const [firstEntry] = await db
+      .select()
+      .from(entry)
+      .where(eq(entry.sessionId, id))
+      .orderBy(asc(entry.lineNumber))
+      .limit(1);
+
+    if (!firstEntry) {
+      return c.json({ error: "No entries found" }, 404);
+    }
+
+    return c.json(formatEntry(firstEntry), 200);
   });
 
   // Get entry
