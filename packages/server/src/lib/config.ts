@@ -7,6 +7,9 @@ const configSchema = z.object({
   databaseUrl: z.string().url(),
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
   corsOrigins: z.string().default("*"),
+  // OpenRouter configuration (optional - AI summary feature disabled if not set)
+  openRouterApiUrl: z.string().url().optional(),
+  openRouterApiKey: z.string().min(1).optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -19,6 +22,8 @@ export function loadConfig(): Config {
     databaseUrl: process.env.DATABASE_URL,
     logLevel: process.env.LOG_LEVEL,
     corsOrigins: process.env.CORS_ORIGINS,
+    openRouterApiUrl: process.env.OPENROUTER_API_URL,
+    openRouterApiKey: process.env.OPENROUTER_API_KEY,
   });
 
   if (!result.success) {

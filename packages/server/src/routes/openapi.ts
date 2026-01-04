@@ -33,6 +33,7 @@ export function createOpenAPIApp() {
       { name: "sessions", description: "Session queries" },
       { name: "entries", description: "Entry queries" },
       { name: "git", description: "Git repository data" },
+      { name: "configuration", description: "Configuration management" },
     ],
     security: [{ apiKey: [] }],
   });

@@ -246,3 +246,68 @@ export const syncStateResponseSchema = z.object({
     description: "Map of workspace cwd to array of session states",
   }),
 });
+
+// Configuration schemas
+export const configurationValueTypeSchema = z
+  .enum(["int", "datetime", "text"])
+  .openapi({ description: "Type hint for UI rendering" });
+
+export const configurationSchema = z.object({
+  id: z.string().uuid(),
+  category: z.string(),
+  key: z.string(),
+  valueType: configurationValueTypeSchema,
+  value: z.string(),
+  description: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const configurationCreateSchema = z.object({
+  category: z.string().min(1).max(50).openapi({
+    description: "Configuration category/namespace",
+    example: "summary",
+  }),
+  key: z.string().min(1).max(100).openapi({
+    description: "Configuration key",
+    example: "model",
+  }),
+  valueType: configurationValueTypeSchema.default("text"),
+  value: z.string().openapi({
+    description: "Configuration value as string",
+    example: "anthropic/claude-sonnet-4",
+  }),
+  description: z.string().optional().openapi({
+    description: "Description for UI",
+  }),
+});
+
+export const configurationUpdateSchema = z.object({
+  value: z.string().openapi({
+    description: "New value",
+  }),
+  description: z.string().optional().openapi({
+    description: "Updated description",
+  }),
+});
+
+// Summary generation schemas
+export const generateSummaryRequestSchema = z.object({
+  userInstructions: z.string().optional().openapi({
+    description: "Additional instructions for summary generation",
+    example: "Focus on security aspects",
+  }),
+});
+
+export const generateSummaryResponseSchema = z.object({
+  summary: z.string().openapi({
+    description: "Generated summary text",
+  }),
+  model: z.string().openapi({
+    description: "Model used for generation",
+  }),
+  usage: z.object({
+    promptTokens: z.number(),
+    completionTokens: z.number(),
+  }),
+});

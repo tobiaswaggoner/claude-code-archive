@@ -3,7 +3,16 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { eq, desc, asc, and, isNull, sql } from "drizzle-orm";
 import { db } from "../db/connection.js";
 import { session, entry, workspace, project } from "../db/schema/index.js";
-import { sessionSchema, entrySchema, paginationSchema, sortOrderSchema, errorSchema } from "./schemas.js";
+import {
+  sessionSchema,
+  entrySchema,
+  paginationSchema,
+  sortOrderSchema,
+  errorSchema,
+  generateSummaryRequestSchema,
+  generateSummaryResponseSchema,
+} from "./schemas.js";
+import { createSummaryGenerator, isSummaryAvailable } from "../services/summary/index.js";
 
 const sessionSortBySchema = z.enum(["lastEntryAt", "entryCount", "totalTokens"]).default("lastEntryAt").openapi({
   description: "Field to sort by",
@@ -180,6 +189,46 @@ const getEntryRoute = createRoute({
     },
     404: {
       description: "Entry not found",
+      content: { "application/json": { schema: errorSchema } },
+    },
+  },
+});
+
+const generateSummaryRoute = createRoute({
+  method: "post",
+  path: "/sessions/{id}/summary",
+  tags: ["sessions"],
+  summary: "Generate AI summary",
+  description: "Generate an AI-powered summary for a session using OpenRouter",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    body: {
+      content: {
+        "application/json": {
+          schema: generateSummaryRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Summary generated successfully",
+      content: {
+        "application/json": {
+          schema: generateSummaryResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Session not found",
+      content: { "application/json": { schema: errorSchema } },
+    },
+    500: {
+      description: "Summary generation failed",
+      content: { "application/json": { schema: errorSchema } },
+    },
+    503: {
+      description: "OpenRouter not configured",
       content: { "application/json": { schema: errorSchema } },
     },
   },
@@ -441,6 +490,47 @@ export function createSessionRoutes() {
     }
 
     return c.json(formatEntry(e), 200);
+  });
+
+  // Generate AI summary
+  app.openapi(generateSummaryRoute, async (c) => {
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
+
+    // Check if OpenRouter is configured
+    if (!isSummaryAvailable()) {
+      return c.json(
+        {
+          error: "OpenRouter not configured",
+          message: "Set OPENROUTER_API_URL and OPENROUTER_API_KEY environment variables",
+        },
+        503
+      );
+    }
+
+    try {
+      const generator = createSummaryGenerator(db);
+      const result = await generator.generate({
+        sessionId: id,
+        userInstructions: body.userInstructions,
+      });
+
+      return c.json(result, 200);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === "Session not found") {
+          return c.json({ error: "Session not found" }, 404);
+        }
+      }
+      console.error("Summary generation error:", error);
+      return c.json(
+        {
+          error: "Summary generation failed",
+          message: error instanceof Error ? error.message : String(error),
+        },
+        500
+      );
+    }
   });
 
   return app;
