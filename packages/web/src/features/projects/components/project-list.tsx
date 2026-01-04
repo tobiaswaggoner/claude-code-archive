@@ -158,7 +158,12 @@ export function ProjectList() {
                         )}
                       </div>
                       <div>
-                        <div className="font-medium">{project.name}</div>
+                        <Link
+                          href={`/projects/${project.id}`}
+                          className="font-medium hover:underline hover:text-primary"
+                        >
+                          {project.name}
+                        </Link>
                         {project.description && (
                           <div className="text-xs text-muted-foreground line-clamp-1">
                             {project.description}
