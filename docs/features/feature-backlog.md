@@ -25,11 +25,11 @@ WICHTIG: Das ist eine autonome Implementations Session. Der User ist nicht verf√
 
 ## Featurelist / Fortschritt
 
-- [ ] docs\features\mark-empty-sessions.md
+- [x] docs\features\mark-empty-sessions.md
     - [x] Plan erstellt
-    - [ ] Implementiert
-    - [ ] Validiert
-    - [ ] Commit & Push
+    - [x] Implementiert
+    - [x] Validiert
+    - [x] Commit & Push
 
 ---
 
