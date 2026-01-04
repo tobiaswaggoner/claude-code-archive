@@ -329,34 +329,38 @@ export function createSessionRoutes() {
     const currentLastEntryAt = current.session.lastEntryAt;
 
     // Find previous session (earlier lastEntryAt, same project, main sessions only)
-    const [prevSession] = await db
-      .select({ id: session.id })
-      .from(session)
-      .innerJoin(workspace, eq(session.workspaceId, workspace.id))
-      .where(
-        and(
-          eq(workspace.projectId, projectId),
-          isNull(session.parentSessionId),
-          currentLastEntryAt ? sql`${session.lastEntryAt} < ${currentLastEntryAt}` : sql`false`
-        )
-      )
-      .orderBy(desc(session.lastEntryAt))
-      .limit(1);
+    const [prevSession] = currentLastEntryAt
+      ? await db
+          .select({ id: session.id })
+          .from(session)
+          .innerJoin(workspace, eq(session.workspaceId, workspace.id))
+          .where(
+            and(
+              eq(workspace.projectId, projectId),
+              isNull(session.parentSessionId),
+              sql`${session.lastEntryAt} < ${currentLastEntryAt.toISOString()}`
+            )
+          )
+          .orderBy(desc(session.lastEntryAt))
+          .limit(1)
+      : [];
 
     // Find next session (later lastEntryAt, same project, main sessions only)
-    const [nextSession] = await db
-      .select({ id: session.id })
-      .from(session)
-      .innerJoin(workspace, eq(session.workspaceId, workspace.id))
-      .where(
-        and(
-          eq(workspace.projectId, projectId),
-          isNull(session.parentSessionId),
-          currentLastEntryAt ? sql`${session.lastEntryAt} > ${currentLastEntryAt}` : sql`false`
-        )
-      )
-      .orderBy(asc(session.lastEntryAt))
-      .limit(1);
+    const [nextSession] = currentLastEntryAt
+      ? await db
+          .select({ id: session.id })
+          .from(session)
+          .innerJoin(workspace, eq(session.workspaceId, workspace.id))
+          .where(
+            and(
+              eq(workspace.projectId, projectId),
+              isNull(session.parentSessionId),
+              sql`${session.lastEntryAt} > ${currentLastEntryAt.toISOString()}`
+            )
+          )
+          .orderBy(asc(session.lastEntryAt))
+          .limit(1)
+      : [];
 
     return c.json(
       {
