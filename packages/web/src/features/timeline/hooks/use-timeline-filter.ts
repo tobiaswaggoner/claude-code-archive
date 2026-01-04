@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useSyncExternalStore } from "react";
+import { useState, useCallback } from "react";
 import type { TimelineFilter } from "../types/timeline";
 import { DEFAULT_TIMELINE_FILTER } from "../types/timeline";
 
@@ -33,57 +33,50 @@ function saveFilterToStorage(filter: TimelineFilter): void {
   }
 }
 
-// For SSR, we need to track hydration status
-function getServerSnapshot(): TimelineFilter {
-  return DEFAULT_TIMELINE_FILTER;
-}
-
-function subscribe(callback: () => void): () => void {
-  window.addEventListener("storage", callback);
-  return () => window.removeEventListener("storage", callback);
-}
-
 export function useTimelineFilter() {
-  // Use useSyncExternalStore for hydration-safe localStorage access
-  const storedFilter = useSyncExternalStore(
-    subscribe,
-    loadFilterFromStorage,
-    getServerSnapshot
-  );
-
-  const [filter, setFilterState] = useState<TimelineFilter>(storedFilter);
-  const isLoaded = true; // Always loaded with useSyncExternalStore
-
-  const setFilter = useCallback((newFilter: TimelineFilter) => {
-    setFilterState(newFilter);
-    saveFilterToStorage(newFilter);
-  }, []);
+  // Lazy initialization from localStorage (runs only on client)
+  const [filter, setFilterState] = useState<TimelineFilter>(() => loadFilterFromStorage());
 
   const hideProject = useCallback((projectId: string) => {
-    setFilter({
-      ...filter,
-      hiddenProjectIds: [...filter.hiddenProjectIds, projectId],
+    setFilterState((prev) => {
+      const newFilter = {
+        ...prev,
+        hiddenProjectIds: [...prev.hiddenProjectIds, projectId],
+      };
+      saveFilterToStorage(newFilter);
+      return newFilter;
     });
-  }, [filter, setFilter]);
+  }, []);
 
   const showProject = useCallback((projectId: string) => {
-    setFilter({
-      ...filter,
-      hiddenProjectIds: filter.hiddenProjectIds.filter((id) => id !== projectId),
+    setFilterState((prev) => {
+      const newFilter = {
+        ...prev,
+        hiddenProjectIds: prev.hiddenProjectIds.filter((id) => id !== projectId),
+      };
+      saveFilterToStorage(newFilter);
+      return newFilter;
     });
-  }, [filter, setFilter]);
+  }, []);
 
   const toggleProject = useCallback((projectId: string) => {
-    if (filter.hiddenProjectIds.includes(projectId)) {
-      showProject(projectId);
-    } else {
-      hideProject(projectId);
-    }
-  }, [filter.hiddenProjectIds, hideProject, showProject]);
+    setFilterState((prev) => {
+      const isHidden = prev.hiddenProjectIds.includes(projectId);
+      const newFilter = {
+        ...prev,
+        hiddenProjectIds: isHidden
+          ? prev.hiddenProjectIds.filter((id) => id !== projectId)
+          : [...prev.hiddenProjectIds, projectId],
+      };
+      saveFilterToStorage(newFilter);
+      return newFilter;
+    });
+  }, []);
 
   const clearFilter = useCallback(() => {
-    setFilter(DEFAULT_TIMELINE_FILTER);
-  }, [setFilter]);
+    setFilterState(DEFAULT_TIMELINE_FILTER);
+    saveFilterToStorage(DEFAULT_TIMELINE_FILTER);
+  }, []);
 
   const isProjectHidden = useCallback(
     (projectId: string) => filter.hiddenProjectIds.includes(projectId),
@@ -92,7 +85,7 @@ export function useTimelineFilter() {
 
   return {
     filter,
-    isLoaded,
+    isLoaded: true,
     hideProject,
     showProject,
     toggleProject,
