@@ -36,6 +36,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { formatDistanceToNow, format, differenceInMinutes, differenceInHours } from "date-fns";
 import type { Entry } from "../types/session";
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
@@ -438,90 +443,129 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Session Header */}
-      <div className="rounded-lg border bg-card p-4 mb-4 shrink-0">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">
-              {session.summary || `Session ${session.originalSessionId.slice(0, 8)}`}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {session.workspaceHost} - {session.workspaceCwd}
-            </p>
-          </div>
-          <div className="text-right text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {session.lastEntryAt
-                ? formatDistanceToNow(new Date(session.lastEntryAt), {
-                    addSuffix: true,
-                  })
-                : "-"}
-            </div>
-          </div>
-        </div>
+      {/* Compact Session Header */}
+      <div className="rounded-lg border bg-card px-3 py-2 mb-2 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Title + Location */}
+          <h2 className="text-sm font-semibold truncate">
+            {session.summary || `Session ${session.originalSessionId.slice(0, 8)}`}
+          </h2>
+          <span className="text-xs text-muted-foreground truncate">
+            {session.workspaceHost} · {session.projectName || session.workspaceCwd}
+          </span>
 
-        <div className="flex flex-wrap gap-4 mt-4 text-sm">
-          <div className="flex items-center gap-1">
-            <MessageSquare className="h-4 w-4" />
-            {session.entryCount} entries
-          </div>
-          {session.agents && session.agents.length > 0 && (
-            <div className="flex items-center gap-1">
-              <Bot className="h-4 w-4" />
-              {session.agents.length} agent sessions
-            </div>
-          )}
-          {session.modelsUsed && session.modelsUsed.length > 0 && (
-            <div className="flex items-center gap-1">
-              <Cpu className="h-4 w-4" />
-              {session.modelsUsed.join(", ")}
-            </div>
-          )}
-          <div className="flex items-center gap-1 font-mono">
-            {formatTokens(session.totalInputTokens)} in /{" "}
-            {formatTokens(session.totalOutputTokens)} out
-          </div>
-        </div>
+          {/* Stats - icon only with tooltips */}
+          <div className="flex items-center gap-1.5 ml-auto text-muted-foreground">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-0.5 text-xs">
+                  <MessageSquare className="h-3 w-3" />
+                  <span>{session.entryCount}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {session.entryCount} entries
+              </TooltipContent>
+            </Tooltip>
 
-        {/* Filter Controls */}
-        <div className="flex items-center gap-4 mt-4 pt-4 border-t">
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Filter className="h-4 w-4" />
-            Show:
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="show-tools"
-              checked={showTools}
-              onCheckedChange={(checked) => setShowTools(checked === true)}
-            />
-            <Label htmlFor="show-tools" className="text-sm cursor-pointer">
-              Tools
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="show-thinking"
-              checked={showThinking}
-              onCheckedChange={(checked) => setShowThinking(checked === true)}
-            />
-            <Label htmlFor="show-thinking" className="text-sm cursor-pointer">
-              Thinking
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="show-internal"
-              checked={showInternal}
-              onCheckedChange={(checked) => setShowInternal(checked === true)}
-            />
-            <Label htmlFor="show-internal" className="text-sm cursor-pointer">
-              Internal
-            </Label>
-          </div>
-          <div className="text-xs text-muted-foreground ml-auto">
-            {displayEntries.length} of {entries.length} entries
+            {session.agents && session.agents.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-0.5 text-xs">
+                    <Bot className="h-3 w-3" />
+                    <span>{session.agents.length}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {session.agents.length} agent sessions
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {session.modelsUsed && session.modelsUsed.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center">
+                    <Cpu className="h-3 w-3" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {session.modelsUsed.join(", ")}
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-0.5 text-xs font-mono">
+                  <span>{formatTokens(session.totalInputTokens)}/{formatTokens(session.totalOutputTokens)}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {formatTokens(session.totalInputTokens)} in / {formatTokens(session.totalOutputTokens)} out
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center">
+                  <Clock className="h-3 w-3" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {session.lastEntryAt
+                  ? formatDistanceToNow(new Date(session.lastEntryAt), { addSuffix: true })
+                  : "-"}
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Filter Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                  <Filter className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-3" align="end">
+                <div className="space-y-3">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Show ({displayEntries.length}/{entries.length})
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="show-tools"
+                        checked={showTools}
+                        onCheckedChange={(checked) => setShowTools(checked === true)}
+                      />
+                      <Label htmlFor="show-tools" className="text-sm cursor-pointer">
+                        Tools
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="show-thinking"
+                        checked={showThinking}
+                        onCheckedChange={(checked) => setShowThinking(checked === true)}
+                      />
+                      <Label htmlFor="show-thinking" className="text-sm cursor-pointer">
+                        Thinking
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="show-internal"
+                        checked={showInternal}
+                        onCheckedChange={(checked) => setShowInternal(checked === true)}
+                      />
+                      <Label htmlFor="show-internal" className="text-sm cursor-pointer">
+                        Internal
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
