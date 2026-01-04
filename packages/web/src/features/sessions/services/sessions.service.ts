@@ -11,7 +11,7 @@ export class SessionsService {
   constructor(private api: ApiClient) {}
 
   async list(params?: SessionListParams): Promise<SessionListResponse> {
-    return this.api.get<SessionListResponse>("/api/sessions", params);
+    return this.api.get<SessionListResponse>("/api/sessions", params as Record<string, string | number | boolean | undefined>);
   }
 
   async get(id: string): Promise<Session> {
@@ -24,7 +24,7 @@ export class SessionsService {
   ): Promise<EntryListResponse> {
     return this.api.get<EntryListResponse>(
       `/api/sessions/${sessionId}/entries`,
-      params
+      params as Record<string, string | number | boolean | undefined>
     );
   }
 }

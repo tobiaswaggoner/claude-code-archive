@@ -33,12 +33,17 @@ export interface SessionListResponse {
   offset: number;
 }
 
+export type SessionSortBy = "lastEntryAt" | "entryCount" | "totalTokens";
+export type SortOrder = "asc" | "desc";
+
 export interface SessionListParams {
   limit?: number;
   offset?: number;
   workspaceId?: string;
   projectId?: string;
   mainOnly?: boolean;
+  sortBy?: SessionSortBy;
+  sortOrder?: SortOrder;
 }
 
 export interface Entry {
@@ -63,4 +68,5 @@ export interface EntryListParams {
   limit?: number;
   offset?: number;
   type?: string;
+  order?: "asc" | "desc";
 }

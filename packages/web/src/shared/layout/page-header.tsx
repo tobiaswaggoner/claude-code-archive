@@ -5,9 +5,10 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   actions?: ReactNode;
+  children?: ReactNode;
 }
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, actions, children }: PageHeaderProps) {
   return (
     <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center border-b bg-background">
       {/* Sidebar Toggle - integrated into header edge */}
@@ -24,7 +25,9 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
           )}
         </div>
 
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {(actions || children) && (
+          <div className="flex items-center gap-2">{actions || children}</div>
+        )}
       </div>
     </header>
   );

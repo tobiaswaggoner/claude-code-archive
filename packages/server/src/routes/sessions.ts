@@ -1,9 +1,14 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { eq, desc, and, isNull, sql } from "drizzle-orm";
+import { eq, desc, asc, and, isNull, sql } from "drizzle-orm";
 import { db } from "../db/connection.js";
 import { session, entry, workspace, project } from "../db/schema/index.js";
-import { sessionSchema, entrySchema, paginationSchema, errorSchema } from "./schemas.js";
+import { sessionSchema, entrySchema, paginationSchema, sortOrderSchema, errorSchema } from "./schemas.js";
+
+const sessionSortBySchema = z.enum(["lastEntryAt", "entryCount", "totalTokens"]).default("lastEntryAt").openapi({
+  description: "Field to sort by",
+  example: "lastEntryAt",
+});
 
 const listSessionsRoute = createRoute({
   method: "get",
@@ -19,6 +24,8 @@ const listSessionsRoute = createRoute({
       mainOnly: z.coerce.boolean().default(false).openapi({
         description: "Only return main sessions (exclude agent sessions)",
       }),
+      sortBy: sessionSortBySchema,
+      sortOrder: sortOrderSchema,
     }),
   },
   responses: {
@@ -86,6 +93,9 @@ const getSessionEntriesRoute = createRoute({
     query: z.object({
       ...paginationSchema.shape,
       type: z.string().optional().openapi({ description: "Filter by entry type" }),
+      order: z.enum(["asc", "desc"]).default("asc").openapi({
+        description: "Sort order by line number (asc for oldest first, desc for newest first)",
+      }),
     }),
   },
   responses: {
@@ -131,7 +141,25 @@ export function createSessionRoutes() {
 
   // List sessions
   app.openapi(listSessionsRoute, async (c) => {
-    const { limit, offset, workspaceId, projectId, mainOnly } = c.req.valid("query");
+    const { limit, offset, workspaceId, projectId, mainOnly, sortBy, sortOrder } = c.req.valid("query");
+
+    // Build sort expression
+    const orderFn = sortOrder === "asc" ? asc : desc;
+    const sortColumn = sortBy === "entryCount" ? session.entryCount
+      : sortBy === "totalTokens" ? sql`${session.totalInputTokens} + ${session.totalOutputTokens}`
+      : session.lastEntryAt;
+
+    // Build where conditions array
+    const conditions = [];
+    if (workspaceId) {
+      conditions.push(eq(session.workspaceId, workspaceId));
+    }
+    if (projectId) {
+      conditions.push(eq(workspace.projectId, projectId));
+    }
+    if (mainOnly) {
+      conditions.push(isNull(session.parentSessionId));
+    }
 
     let query = db
       .select({
@@ -142,20 +170,12 @@ export function createSessionRoutes() {
       .from(session)
       .innerJoin(workspace, eq(session.workspaceId, workspace.id))
       .innerJoin(project, eq(workspace.projectId, project.id))
-      .orderBy(desc(session.lastEntryAt))
+      .orderBy(orderFn(sortColumn))
       .limit(limit)
       .offset(offset);
 
-    if (workspaceId) {
-      query = query.where(eq(session.workspaceId, workspaceId)) as typeof query;
-    }
-
-    if (projectId) {
-      query = query.where(eq(workspace.projectId, projectId)) as typeof query;
-    }
-
-    if (mainOnly) {
-      query = query.where(isNull(session.parentSessionId)) as typeof query;
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     const results = await query;
@@ -177,9 +197,17 @@ export function createSessionRoutes() {
       })
     );
 
-    const [totalResult] = await db
+    // Build count query with same filters
+    let countQuery = db
       .select({ count: sql<number>`count(*)` })
-      .from(session);
+      .from(session)
+      .innerJoin(workspace, eq(session.workspaceId, workspace.id));
+
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions)) as typeof countQuery;
+    }
+
+    const [totalResult] = await countQuery;
 
     return c.json(
       {
@@ -233,17 +261,19 @@ export function createSessionRoutes() {
   // Get session entries
   app.openapi(getSessionEntriesRoute, async (c) => {
     const { id } = c.req.valid("param");
-    const { limit, offset, type } = c.req.valid("query");
+    const { limit, offset, type, order } = c.req.valid("query");
 
     const whereClause = type
       ? and(eq(entry.sessionId, id), eq(entry.type, type))
       : eq(entry.sessionId, id);
 
+    const orderFn = order === "desc" ? desc : asc;
+
     const entries = await db
       .select()
       .from(entry)
       .where(whereClause)
-      .orderBy(entry.lineNumber)
+      .orderBy(orderFn(entry.lineNumber))
       .limit(limit)
       .offset(offset);
 

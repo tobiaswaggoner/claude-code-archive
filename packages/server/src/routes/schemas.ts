@@ -13,6 +13,11 @@ export const paginationSchema = z.object({
   }),
 });
 
+export const sortOrderSchema = z.enum(["asc", "desc"]).default("desc").openapi({
+  description: "Sort order (ascending or descending)",
+  example: "desc",
+});
+
 export const paginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
   z.object({
     items: z.array(itemSchema),

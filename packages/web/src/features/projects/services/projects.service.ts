@@ -10,7 +10,7 @@ export class ProjectsService {
   constructor(private api: ApiClient) {}
 
   async list(params?: ProjectListParams): Promise<ProjectListResponse> {
-    return this.api.get<ProjectListResponse>("/api/projects", params);
+    return this.api.get<ProjectListResponse>("/api/projects", params as Record<string, string | number | boolean | undefined>);
   }
 
   async get(id: string): Promise<Project> {

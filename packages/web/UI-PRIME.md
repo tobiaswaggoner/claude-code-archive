@@ -119,7 +119,7 @@ render(<ProjectList />, {
 
 ## API Backend
 
-Server läuft auf `localhost:4001`. Endpoints:
+Server läuft auf `localhost:3001`. Endpoints:
 
 - `GET /api/projects` - Liste Projekte
 - `GET /api/sessions` - Liste Sessions
@@ -139,7 +139,7 @@ Auth: `X-API-Key` Header (kommt vom User nach Login)
 ## Häufige Befehle
 
 ```bash
-pnpm dev              # Dev Server (localhost:3000)
+pnpm dev              # Dev Server (localhost:4005)
 pnpm test             # Unit Tests
 pnpm test:e2e         # Playwright
 pnpm build            # Production Build

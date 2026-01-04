@@ -11,17 +11,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SortableTableHead, useUrlSort } from "@/shared/data";
 import {
   MessageSquare,
-  Search,
   Bot,
   User,
   Clock,
   Cpu,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import type { SessionSortBy } from "../types/session";
 
 interface SessionListProps {
   projectId?: string;
@@ -30,10 +30,17 @@ interface SessionListProps {
 export function SessionList({ projectId }: SessionListProps) {
   const [mainOnly, setMainOnly] = useState(true);
 
+  const { sortBy, sortOrder, currentSort, toggleSort } = useUrlSort<SessionSortBy>({
+    defaultColumn: "lastEntryAt",
+    defaultOrder: "desc",
+  });
+
   const { data, isLoading, error } = useSessions({
     projectId,
     mainOnly,
     limit: 50,
+    sortBy,
+    sortOrder,
   });
 
   if (error) {
@@ -69,11 +76,29 @@ export function SessionList({ projectId }: SessionListProps) {
             <TableRow>
               <TableHead className="w-[300px]">Session</TableHead>
               <TableHead className="w-[150px]">Project</TableHead>
-              <TableHead className="w-[100px] text-center">Entries</TableHead>
+              <SortableTableHead
+                column="entryCount"
+                label="Entries"
+                currentSort={currentSort}
+                onSort={toggleSort}
+                className="w-[100px] text-center"
+              />
               <TableHead className="w-[100px] text-center">Agents</TableHead>
               <TableHead className="w-[120px]">Models</TableHead>
-              <TableHead className="w-[100px] text-right">Tokens</TableHead>
-              <TableHead className="w-[150px]">Time</TableHead>
+              <SortableTableHead
+                column="totalTokens"
+                label="Tokens"
+                currentSort={currentSort}
+                onSort={toggleSort}
+                className="w-[100px] text-right"
+              />
+              <SortableTableHead
+                column="lastEntryAt"
+                label="Time"
+                currentSort={currentSort}
+                onSort={toggleSort}
+                className="w-[150px]"
+              />
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -1,13 +1,19 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { eq, desc, like, or, sql } from "drizzle-orm";
+import { eq, desc, asc, like, or, sql, max, and } from "drizzle-orm";
 import { db } from "../db/connection.js";
-import { project, gitRepo, workspace, session } from "../db/schema/index.js";
+import { project, gitRepo, workspace, session, gitCommit } from "../db/schema/index.js";
 import {
   projectSchema,
   paginationSchema,
+  sortOrderSchema,
   errorSchema,
 } from "./schemas.js";
+
+const projectSortBySchema = z.enum(["name", "updatedAt", "createdAt", "lastWorkedAt"]).default("lastWorkedAt").openapi({
+  description: "Field to sort by",
+  example: "lastWorkedAt",
+});
 
 const listProjectsRoute = createRoute({
   method: "get",
@@ -20,6 +26,8 @@ const listProjectsRoute = createRoute({
       ...paginationSchema.shape,
       search: z.string().optional().openapi({ description: "Search in name/description" }),
       archived: z.coerce.boolean().optional().openapi({ description: "Filter by archived status" }),
+      sortBy: projectSortBySchema,
+      sortOrder: sortOrderSchema,
     }),
   },
   responses: {
@@ -33,6 +41,7 @@ const listProjectsRoute = createRoute({
                 gitRepoCount: z.number(),
                 workspaceCount: z.number(),
                 sessionCount: z.number(),
+                lastWorkedAt: z.string().datetime().nullable(),
               })
             ),
             total: z.number(),
@@ -63,6 +72,7 @@ const getProjectRoute = createRoute({
             gitRepoCount: z.number(),
             workspaceCount: z.number(),
             sessionCount: z.number(),
+            lastWorkedAt: z.string().datetime().nullable(),
           }),
         },
       },
@@ -152,7 +162,39 @@ export function createProjectRoutes() {
 
   // List projects
   app.openapi(listProjectsRoute, async (c) => {
-    const { limit, offset, search, archived } = c.req.valid("query");
+    const { limit, offset, search, archived, sortBy, sortOrder } = c.req.valid("query");
+
+    const orderFn = sortOrder === "asc" ? asc : desc;
+
+    // Compute lastWorkedAt as a SQL expression for inline sorting
+    // This is the GREATEST of:
+    // 1. Latest session.lastEntryAt from project's workspaces
+    // 2. Latest gitCommit.authorDate from project's commits
+    // 3. gitRepo.lastScannedAt when isDirty=true
+    const lastWorkedAtExpr = sql<Date>`GREATEST(
+      COALESCE((
+        SELECT MAX(s.last_entry_at)
+        FROM session s
+        JOIN workspace w ON s.workspace_id = w.id
+        WHERE w.project_id = ${project.id}
+      ), '1970-01-01'::timestamp),
+      COALESCE((
+        SELECT MAX(gc.author_date)
+        FROM git_commit gc
+        WHERE gc.project_id = ${project.id}
+      ), '1970-01-01'::timestamp),
+      COALESCE((
+        SELECT MAX(gr.last_scanned_at)
+        FROM git_repo gr
+        WHERE gr.project_id = ${project.id} AND gr.is_dirty = true
+      ), '1970-01-01'::timestamp)
+    )`;
+
+    // Build sort column
+    const sortColumn = sortBy === "name" ? project.name
+      : sortBy === "createdAt" ? project.createdAt
+      : sortBy === "lastWorkedAt" ? lastWorkedAtExpr
+      : project.updatedAt;
 
     // Get projects with counts
     let baseQuery = db
@@ -166,7 +208,7 @@ export function createProjectRoutes() {
         archived: project.archived,
       })
       .from(project)
-      .orderBy(desc(project.updatedAt))
+      .orderBy(orderFn(sortColumn))
       .limit(limit)
       .offset(offset);
 
@@ -212,11 +254,18 @@ export function createProjectRoutes() {
           }
         }
 
+        // Compute lastWorkedAt as max of:
+        // 1. Latest session.lastEntryAt from project's workspaces
+        // 2. Latest gitCommit.authorDate from project's commits
+        // 3. gitRepo.lastScannedAt when isDirty=true
+        const lastWorkedAt = await computeLastWorkedAt(p.id);
+
         return {
           ...formatProject(p),
           gitRepoCount: Number(repoCount.count),
           workspaceCount: Number(wsCount.count),
           sessionCount,
+          lastWorkedAt,
         };
       })
     );
@@ -271,12 +320,15 @@ export function createProjectRoutes() {
       sessionCount += Number(sCount.count);
     }
 
+    const lastWorkedAt = await computeLastWorkedAt(id);
+
     return c.json(
       {
         ...formatProject(p),
         gitRepoCount: Number(repoCount.count),
         workspaceCount: Number(wsCount.count),
         sessionCount,
+        lastWorkedAt,
       },
       200
     );
@@ -361,4 +413,53 @@ function formatProject(p: typeof project.$inferSelect) {
     updatedAt: p.updatedAt.toISOString(),
     archived: p.archived ?? false,
   };
+}
+
+/**
+ * Compute lastWorkedAt as max of:
+ * 1. Latest session.lastEntryAt from project's workspaces
+ * 2. Latest gitCommit.authorDate from project's commits
+ * 3. gitRepo.lastScannedAt when isDirty=true
+ */
+async function computeLastWorkedAt(projectId: string): Promise<string | null> {
+  const candidates: Date[] = [];
+
+  // 1. Latest session lastEntryAt from workspaces
+  const [latestSession] = await db
+    .select({ maxDate: max(session.lastEntryAt) })
+    .from(session)
+    .innerJoin(workspace, eq(session.workspaceId, workspace.id))
+    .where(eq(workspace.projectId, projectId));
+
+  if (latestSession?.maxDate) {
+    candidates.push(latestSession.maxDate);
+  }
+
+  // 2. Latest commit authorDate
+  const [latestCommit] = await db
+    .select({ maxDate: max(gitCommit.authorDate) })
+    .from(gitCommit)
+    .where(eq(gitCommit.projectId, projectId));
+
+  if (latestCommit?.maxDate) {
+    candidates.push(latestCommit.maxDate);
+  }
+
+  // 3. lastScannedAt when isDirty=true
+  const [latestDirtyRepo] = await db
+    .select({ maxDate: max(gitRepo.lastScannedAt) })
+    .from(gitRepo)
+    .where(and(eq(gitRepo.projectId, projectId), eq(gitRepo.isDirty, true)));
+
+  if (latestDirtyRepo?.maxDate) {
+    candidates.push(latestDirtyRepo.maxDate);
+  }
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  // Return the most recent date
+  const maxDate = new Date(Math.max(...candidates.map((d) => d.getTime())));
+  return maxDate.toISOString();
 }

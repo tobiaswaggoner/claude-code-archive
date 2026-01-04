@@ -122,23 +122,11 @@ export function ActivityHeatmap() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            {/* Month labels */}
-            <div className="flex text-xs text-muted-foreground mb-1 ml-8">
-              {monthLabels.map((m, i) => (
-                <span
-                  key={i}
-                  style={{ marginLeft: i === 0 ? 0 : `${(m.week - (monthLabels[i - 1]?.week ?? 0) - 1) * 12}px` }}
-                  className="min-w-[24px]"
-                >
-                  {m.label}
-                </span>
-              ))}
-            </div>
-
             {/* Heatmap grid */}
-            <div className="flex gap-1">
+            <div className="flex gap-[2px]">
               {/* Day labels */}
-              <div className="flex flex-col gap-[2px] text-xs text-muted-foreground pr-1">
+              <div className="flex flex-col gap-[2px] text-xs text-muted-foreground w-8 shrink-0">
+                <span className="h-3"></span>{/* Month label row spacer */}
                 <span className="h-[10px]"></span>
                 <span className="h-[10px] leading-[10px]">Mon</span>
                 <span className="h-[10px]"></span>
@@ -148,8 +136,21 @@ export function ActivityHeatmap() {
                 <span className="h-[10px]"></span>
               </div>
 
-              {/* Calendar grid */}
-              <div className="flex gap-[2px]">
+              {/* Calendar grid with month labels */}
+              <div className="flex flex-col gap-[2px]">
+                {/* Month labels row */}
+                <div className="flex gap-[2px] h-3 mb-1">
+                  {calendar.map((week, weekIndex) => {
+                    const monthLabel = monthLabels.find((m) => m.week === weekIndex);
+                    return (
+                      <div key={weekIndex} className="w-[10px] text-xs text-muted-foreground overflow-visible whitespace-nowrap">
+                        {monthLabel ? monthLabel.label : ""}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Week columns */}
+                <div className="flex gap-[2px]">
                 {calendar.map((week, weekIndex) => (
                   <div key={weekIndex} className="flex flex-col gap-[2px]">
                     {week.map((day, dayIndex) => {
@@ -190,6 +191,7 @@ export function ActivityHeatmap() {
                     })}
                   </div>
                 ))}
+                </div>
               </div>
             </div>
 

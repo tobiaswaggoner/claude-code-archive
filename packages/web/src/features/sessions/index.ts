@@ -1,6 +1,8 @@
 // Components
 export { SessionList } from "./components/session-list";
 export { SessionViewer } from "./components/session-viewer";
+export { SessionsPageContent } from "./components/sessions-page-content";
+export { ProjectFilter } from "./components/project-filter";
 
 // Hooks
 export {

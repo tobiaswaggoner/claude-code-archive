@@ -44,17 +44,19 @@ Hono API with OpenAPI documentation (Scalar UI).
 ```bash
 # Development
 cd packages/server
-pnpm dev          # Runs on PORT from .env (default 4001)
+pnpm dev          # Runs on PORT from .env (default 3001)
 
 # API Docs
-http://localhost:4001/api/docs
+http://localhost:3001/api/docs
 
 # Database migrations
 pnpm db:generate  # Generate migration from schema
 pnpm db:migrate   # Apply migrations
 ```
 
-**Authentication:** `X-API-Key` header required. Public endpoints: `/api/docs`, `/api/openapi.json`, `/api/health`.
+**Authentication:** `X-API-Key` header required (user API key from database). Public endpoints: `/api/docs`, `/api/openapi.json`, `/api/health`.
+
+**Dev API Key:** `ca_753ee75bde15dccc3b53bc0c8e974bb8`
 
 **API Endpoints:**
 - `GET /health`, `/api/health` - Health check (no auth)
@@ -117,7 +119,7 @@ Next.js 16 Backoffice Application.
 
 ```bash
 cd packages/web
-pnpm dev          # localhost:3000
+pnpm dev          # localhost:4005
 pnpm test         # Vitest
 pnpm test:e2e     # Playwright
 ```

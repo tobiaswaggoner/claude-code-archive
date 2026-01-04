@@ -13,6 +13,7 @@ export interface Project {
   gitRepoCount: number;
   workspaceCount: number;
   sessionCount: number;
+  lastWorkedAt: string | null;
 }
 
 export interface ProjectListResponse {
@@ -22,11 +23,16 @@ export interface ProjectListResponse {
   offset: number;
 }
 
+export type ProjectSortBy = "name" | "updatedAt" | "createdAt" | "lastWorkedAt";
+export type SortOrder = "asc" | "desc";
+
 export interface ProjectListParams {
   limit?: number;
   offset?: number;
   search?: string;
   archived?: boolean;
+  sortBy?: ProjectSortBy;
+  sortOrder?: SortOrder;
 }
 
 export interface Workspace {

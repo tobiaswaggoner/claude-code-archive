@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SortableTableHead, useUrlSort } from "@/shared/data";
 import {
   FolderOpen,
   GitBranch,
@@ -23,10 +24,16 @@ import {
   Archive,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import type { ProjectSortBy } from "../types/project";
 
 export function ProjectList() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const { sortBy, sortOrder, currentSort, toggleSort } = useUrlSort<ProjectSortBy>({
+    defaultColumn: "lastWorkedAt",
+    defaultOrder: "desc",
+  });
 
   // Simple debounce
   const handleSearchChange = (value: string) => {
@@ -40,6 +47,8 @@ export function ProjectList() {
   const { data, isLoading, error } = useProjects({
     search: debouncedSearch || undefined,
     limit: 50,
+    sortBy,
+    sortOrder,
   });
 
   if (error) {
@@ -73,11 +82,23 @@ export function ProjectList() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[300px]">Project</TableHead>
+              <SortableTableHead
+                column="name"
+                label="Project"
+                currentSort={currentSort}
+                onSort={toggleSort}
+                className="w-[300px]"
+              />
               <TableHead className="w-[100px] text-center">Sessions</TableHead>
               <TableHead className="w-[100px] text-center">Repos</TableHead>
               <TableHead className="w-[100px] text-center">Workspaces</TableHead>
-              <TableHead className="w-[150px]">Last Updated</TableHead>
+              <SortableTableHead
+                column="lastWorkedAt"
+                label="Last worked"
+                currentSort={currentSort}
+                onSort={toggleSort}
+                className="w-[150px]"
+              />
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -128,10 +149,7 @@ export function ProjectList() {
               data?.items.map((project) => (
                 <TableRow key={project.id}>
                   <TableCell>
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="flex items-center gap-2 hover:underline"
-                    >
+                    <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded bg-muted">
                         {project.archived ? (
                           <Archive className="h-4 w-4 text-muted-foreground" />
@@ -147,13 +165,16 @@ export function ProjectList() {
                           </div>
                         )}
                       </div>
-                    </Link>
+                    </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-sm">
+                    <Link
+                      href={`/sessions?projectId=${project.id}`}
+                      className="flex items-center justify-center gap-1 text-sm hover:text-primary hover:underline"
+                    >
                       <MessageSquare className="h-3 w-3" />
                       {project.sessionCount}
-                    </div>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1 text-sm">
@@ -166,9 +187,11 @@ export function ProjectList() {
                   </TableCell>
                   <TableCell>
                     <div className="text-sm text-muted-foreground">
-                      {formatDistanceToNow(new Date(project.updatedAt), {
-                        addSuffix: true,
-                      })}
+                      {project.lastWorkedAt
+                        ? formatDistanceToNow(new Date(project.lastWorkedAt), {
+                            addSuffix: true,
+                          })
+                        : "-"}
                     </div>
                   </TableCell>
                   <TableCell>
