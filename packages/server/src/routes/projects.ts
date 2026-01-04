@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { eq, desc, asc, like, or, sql, max, and } from "drizzle-orm";
+import { eq, desc, asc, like, or, sql, max, and, isNull } from "drizzle-orm";
 import { db } from "../db/connection.js";
 import { project, gitRepo, workspace, session, gitCommit } from "../db/schema/index.js";
 import {
@@ -294,7 +294,13 @@ export function createProjectRoutes() {
     }
 
     if (archived !== undefined) {
-      baseQuery = baseQuery.where(eq(project.archived, archived)) as typeof baseQuery;
+      if (archived === false) {
+        // Match both false and null (not archived)
+        baseQuery = baseQuery.where(or(eq(project.archived, false), isNull(project.archived))) as typeof baseQuery;
+      } else {
+        // Match only true (archived)
+        baseQuery = baseQuery.where(eq(project.archived, true)) as typeof baseQuery;
+      }
     }
 
     const projects = await baseQuery;

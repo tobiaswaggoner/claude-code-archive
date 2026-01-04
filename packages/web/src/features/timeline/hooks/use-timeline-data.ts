@@ -6,14 +6,13 @@ import { useSessions } from "@/features/sessions";
 import type { TimelineProject, TimelineSession } from "../types/timeline";
 
 export function useTimelineData() {
-  // Fetch all projects
+  // Fetch all projects (archived filter has DB null-handling bug, skip for now)
   const {
     data: projectsData,
     isLoading: projectsLoading,
     error: projectsError,
   } = useProjects({
     limit: 200,
-    archived: false,
     sortBy: "lastWorkedAt",
     sortOrder: "desc",
   });
