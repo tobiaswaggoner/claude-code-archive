@@ -449,10 +449,15 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
       {/* Compact Session Header - fixed outside scroll area */}
       <div className="rounded-lg border bg-card px-3 py-2 mb-2 shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Title + Location */}
+          {/* Title + Date + Location */}
           <h2 className="text-sm font-semibold truncate">
             {session.summary || `Session ${session.originalSessionId.slice(0, 8)}`}
           </h2>
+          {session.firstEntryAt && (
+            <span className="text-xs font-medium text-primary">
+              {format(new Date(session.firstEntryAt), "dd.MM.yyyy HH:mm")}
+            </span>
+          )}
           <span className="text-xs text-muted-foreground truncate">
             {session.workspaceHost} · {session.projectName || session.workspaceCwd}
           </span>

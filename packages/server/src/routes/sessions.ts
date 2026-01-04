@@ -326,10 +326,10 @@ export function createSessionRoutes() {
     }
 
     const projectId = current.workspace.projectId;
-    const currentLastEntryAt = current.session.lastEntryAt;
+    const currentFirstEntryAt = current.session.firstEntryAt;
 
-    // Find previous session (earlier lastEntryAt, same project, main sessions only)
-    const [prevSession] = currentLastEntryAt
+    // Find previous session (earlier firstEntryAt, same project, main sessions only)
+    const [prevSession] = currentFirstEntryAt
       ? await db
           .select({ id: session.id })
           .from(session)
@@ -338,15 +338,15 @@ export function createSessionRoutes() {
             and(
               eq(workspace.projectId, projectId),
               isNull(session.parentSessionId),
-              sql`${session.lastEntryAt} < ${currentLastEntryAt.toISOString()}`
+              sql`${session.firstEntryAt} < ${currentFirstEntryAt.toISOString()}`
             )
           )
-          .orderBy(desc(session.lastEntryAt))
+          .orderBy(desc(session.firstEntryAt))
           .limit(1)
       : [];
 
-    // Find next session (later lastEntryAt, same project, main sessions only)
-    const [nextSession] = currentLastEntryAt
+    // Find next session (later firstEntryAt, same project, main sessions only)
+    const [nextSession] = currentFirstEntryAt
       ? await db
           .select({ id: session.id })
           .from(session)
@@ -355,10 +355,10 @@ export function createSessionRoutes() {
             and(
               eq(workspace.projectId, projectId),
               isNull(session.parentSessionId),
-              sql`${session.lastEntryAt} > ${currentLastEntryAt.toISOString()}`
+              sql`${session.firstEntryAt} > ${currentFirstEntryAt.toISOString()}`
             )
           )
-          .orderBy(asc(session.lastEntryAt))
+          .orderBy(asc(session.firstEntryAt))
           .limit(1)
       : [];
 
