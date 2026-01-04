@@ -318,10 +318,27 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useSessionEntriesInfinite(sessionId, { limit: 50, order: "desc" });
+  } = useSessionEntriesInfinite(sessionId, { limit: 100, order: "desc" });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [isLoadingAll, setIsLoadingAll] = useState(false);
+
+  // Load all pages function
+  const loadAllPages = useCallback(async () => {
+    if (!hasNextPage || isLoadingAll) return;
+    setIsLoadingAll(true);
+    try {
+      let hasMore = true;
+      while (hasMore) {
+        const result = await fetchNextPage();
+        // Check if there are more pages by examining the result
+        hasMore = !!result.hasNextPage;
+      }
+    } finally {
+      setIsLoadingAll(false);
+    }
+  }, [fetchNextPage, hasNextPage, isLoadingAll]);
 
   // Filter state
   const [showTools, setShowTools] = useState(false);
@@ -549,19 +566,32 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
       >
         {/* Load more indicator at top */}
         {hasNextPage && (
-          <div className="flex justify-center py-2">
-            {isFetchingNextPage ? (
-              <div className="text-sm text-muted-foreground">Loading older messages...</div>
+          <div className="flex justify-center gap-2 py-2">
+            {isFetchingNextPage || isLoadingAll ? (
+              <div className="text-sm text-muted-foreground">
+                {isLoadingAll ? "Loading complete conversation..." : "Loading older messages..."}
+              </div>
             ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => fetchNextPage()}
-                className="text-muted-foreground"
-              >
-                <ChevronUp className="h-4 w-4 mr-1" />
-                Load older messages
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fetchNextPage()}
+                  className="text-muted-foreground"
+                >
+                  <ChevronUp className="h-4 w-4 mr-1" />
+                  Load older
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadAllPages}
+                  className="text-muted-foreground"
+                >
+                  <Archive className="h-4 w-4 mr-1" />
+                  Load all
+                </Button>
+              </>
             )}
           </div>
         )}
