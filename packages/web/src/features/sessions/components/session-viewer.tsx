@@ -1,6 +1,7 @@
 "use client";
 
-import { useSession, useSessionEntriesInfinite, useSessionFirstEntry } from "../hooks/use-sessions";
+import { useSession, useSessionEntriesInfinite, useSessionFirstEntry, useSessionAdjacent } from "../hooks/use-sessions";
+import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/markdown";
@@ -13,6 +14,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   AlertCircle,
   Clock,
   Cpu,
@@ -318,6 +320,7 @@ interface SessionViewerProps {
 export function SessionViewer({ sessionId }: SessionViewerProps) {
   const { data: session, isLoading: sessionLoading } = useSession(sessionId);
   const { data: firstEntry } = useSessionFirstEntry(sessionId);
+  const { data: adjacent } = useSessionAdjacent(sessionId);
   const {
     data: entriesData,
     isLoading: entriesLoading,
@@ -566,6 +569,54 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
                 </div>
               </PopoverContent>
             </Popover>
+
+            {/* Session Navigation */}
+            <div className="flex items-center gap-0.5 border-l pl-1.5 ml-0.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    disabled={!adjacent?.prev}
+                    asChild={!!adjacent?.prev}
+                  >
+                    {adjacent?.prev ? (
+                      <Link href={`/sessions/${adjacent.prev}`}>
+                        <ChevronLeft className="h-3 w-3" />
+                      </Link>
+                    ) : (
+                      <span><ChevronLeft className="h-3 w-3" /></span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Previous session
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    disabled={!adjacent?.next}
+                    asChild={!!adjacent?.next}
+                  >
+                    {adjacent?.next ? (
+                      <Link href={`/sessions/${adjacent.next}`}>
+                        <ChevronRight className="h-3 w-3" />
+                      </Link>
+                    ) : (
+                      <span><ChevronRight className="h-3 w-3" /></span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Next session
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         </div>
       </div>

@@ -78,3 +78,14 @@ export function useSessionFirstEntry(sessionId: string) {
     staleTime: 60_000,
   });
 }
+
+export function useSessionAdjacent(sessionId: string) {
+  const sessionsService = useInject<SessionsService>(TOKENS.SessionsService);
+
+  return useQuery({
+    queryKey: ["session", sessionId, "adjacent"],
+    queryFn: () => sessionsService.getAdjacent(sessionId),
+    enabled: !!sessionId,
+    staleTime: 30_000,
+  });
+}

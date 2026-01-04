@@ -32,4 +32,8 @@ export class SessionsService {
   async getFirstEntry(sessionId: string): Promise<Entry> {
     return this.api.get<Entry>(`/api/sessions/${sessionId}/first-entry`);
   }
+
+  async getAdjacent(sessionId: string): Promise<{ prev: string | null; next: string | null }> {
+    return this.api.get<{ prev: string | null; next: string | null }>(`/api/sessions/${sessionId}/adjacent`);
+  }
 }

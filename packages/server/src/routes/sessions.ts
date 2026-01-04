@@ -82,6 +82,34 @@ const getSessionRoute = createRoute({
   },
 });
 
+const getSessionAdjacentRoute = createRoute({
+  method: "get",
+  path: "/sessions/{id}/adjacent",
+  tags: ["sessions"],
+  summary: "Get adjacent sessions",
+  description: "Get previous and next session IDs within the same project",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+  },
+  responses: {
+    200: {
+      description: "Adjacent session IDs",
+      content: {
+        "application/json": {
+          schema: z.object({
+            prev: z.string().uuid().nullable(),
+            next: z.string().uuid().nullable(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Session not found",
+      content: { "application/json": { schema: errorSchema } },
+    },
+  },
+});
+
 const getSessionEntriesRoute = createRoute({
   method: "get",
   path: "/sessions/{id}/entries",
@@ -274,6 +302,66 @@ export function createSessionRoutes() {
         workspaceCwd: result.workspace.cwd,
         projectName: result.project.name,
         agents: agents.map(formatSession),
+      },
+      200
+    );
+  });
+
+  // Get adjacent sessions (prev/next in same project)
+  app.openapi(getSessionAdjacentRoute, async (c) => {
+    const { id } = c.req.valid("param");
+
+    // First get the current session with its project
+    const [current] = await db
+      .select({
+        session: session,
+        workspace: workspace,
+      })
+      .from(session)
+      .innerJoin(workspace, eq(session.workspaceId, workspace.id))
+      .where(eq(session.id, id));
+
+    if (!current) {
+      return c.json({ error: "Session not found" }, 404);
+    }
+
+    const projectId = current.workspace.projectId;
+    const currentLastEntryAt = current.session.lastEntryAt;
+
+    // Find previous session (earlier lastEntryAt, same project, main sessions only)
+    const [prevSession] = await db
+      .select({ id: session.id })
+      .from(session)
+      .innerJoin(workspace, eq(session.workspaceId, workspace.id))
+      .where(
+        and(
+          eq(workspace.projectId, projectId),
+          isNull(session.parentSessionId),
+          currentLastEntryAt ? sql`${session.lastEntryAt} < ${currentLastEntryAt}` : sql`false`
+        )
+      )
+      .orderBy(desc(session.lastEntryAt))
+      .limit(1);
+
+    // Find next session (later lastEntryAt, same project, main sessions only)
+    const [nextSession] = await db
+      .select({ id: session.id })
+      .from(session)
+      .innerJoin(workspace, eq(session.workspaceId, workspace.id))
+      .where(
+        and(
+          eq(workspace.projectId, projectId),
+          isNull(session.parentSessionId),
+          currentLastEntryAt ? sql`${session.lastEntryAt} > ${currentLastEntryAt}` : sql`false`
+        )
+      )
+      .orderBy(asc(session.lastEntryAt))
+      .limit(1);
+
+    return c.json(
+      {
+        prev: prevSession?.id ?? null,
+        next: nextSession?.id ?? null,
       },
       200
     );
