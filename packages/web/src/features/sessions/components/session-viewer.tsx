@@ -533,14 +533,21 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
         </div>
       </div>
 
-      {/* Pinned First User Message */}
-      {firstUserMessage && (
+      {/* Pinned First User Message - only show when not all entries are loaded */}
+      {firstUserMessage && hasNextPage && (
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b mb-2 shrink-0">
           <div className="px-2 py-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
             <div className="flex gap-1.5">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-500/20 shrink-0 mt-0.5">
-                <Pin className="h-3 w-3 text-blue-500" />
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-500/20 shrink-0 mt-0.5">
+                    <Pin className="h-3 w-3 text-blue-500" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  First loaded message (load all to see actual first)
+                </TooltipContent>
+              </Tooltip>
               <div className="flex-1 min-w-0">
                 <CollapsibleContent maxHeight={60}>
                   <div className="text-sm">
@@ -552,6 +559,11 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
                   </div>
                 </CollapsibleContent>
               </div>
+              {firstUserMessage.timestamp && session.firstEntryAt && (
+                <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0 mt-0.5">
+                  {formatCompactTime(firstUserMessage.timestamp)} {formatDelta(firstUserMessage.timestamp, session.firstEntryAt)}
+                </span>
+              )}
             </div>
           </div>
         </div>
