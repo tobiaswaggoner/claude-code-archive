@@ -1,10 +1,17 @@
 # Feature List (Backlog)
 
+## Outer Loop
+
 Implementiere alle Features, die in folgenden Dateien beschrieben sind.
 
 Gehe dabei iterativ vor: 
 
 W채hle nur das n채chste, nicht fertig implementierte Feature und schau Dir nur dieses an.
+
+Nur wenn alle Features vollst채ndig implementiert sind, antworte mit:
+<promise>COMPLETE</promise>
+
+## Inner loop (pro Feature)
 
 1. Untersuche die Code Basis und erstelle einen detaillierten Implementationsplan
 2. Implementiere den Plan Schritt f체r Schritt. Alle Features m체ssen mit Unit Tests abgesichert sein. Es darf keine Linter Fehler geben. Es darf keine failenden Tests geben.
@@ -15,11 +22,13 @@ WICHTIG: Gehe nur zum n채chsten Feature, wenn das vorige Feature komplett implem
 WICHTIG: Hake erledigte Aufgaben in diesem Dokument ab.
 WICHTIG: Das ist eine autonome Implementations Session. Der User ist nicht verf체gbar. Bei Unklarheiten entscheide selbst und halte Deine Entscheidungen unten in diesem Dokument fest. 
 
-- [ ] docs\features\project-view.md
-    - [ ] Plan erstellt
-    - [ ] Implementiert
-    - [ ] Validiert
-    - [ ] Commit & Push
+Hinweis: Nutze den "notify" skill um Zwischenmeldungen bei erreichen eines Zwischenziels zu geben!
+
+- [x] docs\features\project-view.md
+    - [x] Plan erstellt
+    - [x] Implementiert
+    - [x] Validiert
+    - [x] Commit & Push
 - [ ] docs\features\timeline.md
     - [ ] Plan erstellt
     - [ ] Implementiert
@@ -29,6 +38,8 @@ WICHTIG: Das ist eine autonome Implementations Session. Der User ist nicht verf�
 
 ---
 
-# Descisions (if any)
+# Decisions (if any)
 
-- 
+- Project View: InlineEditField als generische shared/ui Komponente implementiert f체r Wiederverwendbarkeit
+- Project View: Timeline-Ansicht direkt in ProjectDetail integriert statt separater Komponente
+- Project View: Git-Commits werden nur bei Bedarf geladen (Checkbox-Toggle) f체r bessere Performance 

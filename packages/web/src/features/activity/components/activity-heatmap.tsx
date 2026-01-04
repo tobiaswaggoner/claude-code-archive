@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { format, startOfWeek, addDays, isSameDay, parseISO } from "date-fns";
+import { format, startOfWeek, addDays, isSameDay } from "date-fns";
 import type { DayActivity } from "../types/activity";
 
 const WEEKS_TO_SHOW = 52;

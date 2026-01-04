@@ -18,7 +18,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useModels } from "../hooks/use-models";
-import type { Model } from "../types/model";
 
 interface ModelPickerProps {
   value: string;
@@ -41,7 +40,8 @@ export function ModelPicker({ value, onChange, disabled }: ModelPickerProps) {
   const [search, setSearch] = useState("");
   const { data, isLoading, error } = useModels();
 
-  const models = data?.data ?? [];
+  // Memoize models array to prevent unstable dependencies in subsequent hooks
+  const models = useMemo(() => data?.data ?? [], [data]);
 
   // Filter models based on search
   const filteredModels = useMemo(() => {

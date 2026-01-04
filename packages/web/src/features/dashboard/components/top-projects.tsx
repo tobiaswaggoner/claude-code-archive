@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, ArrowRight, MessageSquare, Monitor } from "lucide-react";
+import { ArrowRight, MessageSquare, Monitor } from "lucide-react";
 
 interface Project {
   id: string;

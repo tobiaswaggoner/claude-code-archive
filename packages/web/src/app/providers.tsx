@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -78,27 +78,17 @@ function registerServices(target: Container) {
 }
 
 export function Providers({ children, diOverrides }: ProvidersProps) {
-  const [currentContainer, setCurrentContainer] = useState<Container | null>(null);
-
-  useEffect(() => {
-    // Create container with optional overrides
+  // Initialize container synchronously during render using useMemo
+  const currentContainer = useMemo(() => {
     if (diOverrides) {
       const child = container.createChild(diOverrides);
       registerServices(child);
-      setCurrentContainer(child);
+      return child;
     } else {
       registerServices(container);
-      setCurrentContainer(container);
+      return container;
     }
-
-    return () => {
-      container.clear();
-    };
   }, [diOverrides]);
-
-  if (!currentContainer) {
-    return null; // Wait for container initialization
-  }
 
   return (
     <QueryClientProvider client={queryClient}>

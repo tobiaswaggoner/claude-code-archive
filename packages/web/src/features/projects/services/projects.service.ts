@@ -4,6 +4,8 @@ import type {
   ProjectListParams,
   ProjectListResponse,
   WorkspaceListResponse,
+  GitCommitListResponse,
+  GitCommitListParams,
 } from "../types/project";
 import type { ProjectUpdateInput } from "../types/project-update";
 
@@ -24,22 +26,21 @@ export class ProjectsService {
 
   /**
    * Update a project.
-   * NOTE: Currently mocked - API endpoint not yet implemented.
    */
   async update(id: string, data: ProjectUpdateInput): Promise<Project> {
-    // TODO: Replace with real API call when available
-    // return this.api.put<Project>(`/api/projects/${id}`, data);
+    return this.api.put<Project>(`/api/projects/${id}`, data);
+  }
 
-    console.warn("[ProjectsService] PUT /api/projects/{id} is mocked");
-
-    // Mock: fetch current and merge with updates
-    const current = await this.get(id);
-    const updated: Project = {
-      ...current,
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
-
-    return updated;
+  /**
+   * Get git commits for a project.
+   */
+  async getCommits(
+    id: string,
+    params?: GitCommitListParams
+  ): Promise<GitCommitListResponse> {
+    return this.api.get<GitCommitListResponse>(
+      `/api/projects/${id}/commits`,
+      params as Record<string, string | number | boolean | undefined>
+    );
   }
 }

@@ -5,6 +5,8 @@ import { db } from "../db/connection.js";
 import { project, gitRepo, workspace, session, gitCommit } from "../db/schema/index.js";
 import {
   projectSchema,
+  projectUpdateSchema,
+  gitCommitSchema,
   paginationSchema,
   sortOrderSchema,
   errorSchema,
@@ -150,6 +152,79 @@ const getProjectGitReposRoute = createRoute({
                 branchCount: z.number(),
               })
             ),
+          }),
+        },
+      },
+    },
+  },
+});
+
+const updateProjectRoute = createRoute({
+  method: "put",
+  path: "/projects/{id}",
+  tags: ["projects"],
+  summary: "Update project",
+  description: "Update project details (name, description, upstream URL, archived status)",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    body: {
+      content: {
+        "application/json": {
+          schema: projectUpdateSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Updated project",
+      content: {
+        "application/json": {
+          schema: projectSchema.extend({
+            gitRepoCount: z.number(),
+            workspaceCount: z.number(),
+            sessionCount: z.number(),
+            lastWorkedAt: z.string().datetime().nullable(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Project not found",
+      content: { "application/json": { schema: errorSchema } },
+    },
+  },
+});
+
+const getProjectCommitsRoute = createRoute({
+  method: "get",
+  path: "/projects/{id}/commits",
+  tags: ["git"],
+  summary: "Get project commits",
+  description: "Get all git commits for a project with optional date filtering",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    query: z.object({
+      ...paginationSchema.shape,
+      startDate: z.string().datetime().optional().openapi({
+        description: "Filter commits after this date (ISO 8601)",
+      }),
+      endDate: z.string().datetime().optional().openapi({
+        description: "Filter commits before this date (ISO 8601)",
+      }),
+      sortOrder: sortOrderSchema,
+    }),
+  },
+  responses: {
+    200: {
+      description: "Git commits for project",
+      content: {
+        "application/json": {
+          schema: z.object({
+            items: z.array(gitCommitSchema),
+            total: z.number(),
+            limit: z.number(),
+            offset: z.number(),
           }),
         },
       },
@@ -398,6 +473,133 @@ export function createProjectRoutes() {
     );
 
     return c.json({ items }, 200);
+  });
+
+  // Update project
+  app.openapi(updateProjectRoute, async (c) => {
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
+
+    // Check if project exists
+    const [existing] = await db.select().from(project).where(eq(project.id, id));
+    if (!existing) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    // Build update object with only provided fields
+    const updateData: Partial<typeof project.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+
+    if (body.name !== undefined) {
+      updateData.name = body.name;
+    }
+    if (body.description !== undefined) {
+      updateData.description = body.description;
+    }
+    if (body.upstreamUrl !== undefined) {
+      updateData.upstreamUrl = body.upstreamUrl;
+    }
+    if (body.archived !== undefined) {
+      updateData.archived = body.archived;
+    }
+
+    // Perform update
+    const [updated] = await db
+      .update(project)
+      .set(updateData)
+      .where(eq(project.id, id))
+      .returning();
+
+    // Get counts (same as getProject)
+    const [repoCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(gitRepo)
+      .where(eq(gitRepo.projectId, id));
+
+    const [wsCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(workspace)
+      .where(eq(workspace.projectId, id));
+
+    const workspaces = await db
+      .select({ id: workspace.id })
+      .from(workspace)
+      .where(eq(workspace.projectId, id));
+
+    let sessionCount = 0;
+    for (const ws of workspaces) {
+      const [sCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(session)
+        .where(eq(session.workspaceId, ws.id));
+      sessionCount += Number(sCount.count);
+    }
+
+    const lastWorkedAt = await computeLastWorkedAt(id);
+
+    return c.json(
+      {
+        ...formatProject(updated),
+        gitRepoCount: Number(repoCount.count),
+        workspaceCount: Number(wsCount.count),
+        sessionCount,
+        lastWorkedAt,
+      },
+      200
+    );
+  });
+
+  // Get project commits
+  app.openapi(getProjectCommitsRoute, async (c) => {
+    const { id } = c.req.valid("param");
+    const { limit, offset, startDate, endDate, sortOrder } = c.req.valid("query");
+
+    const orderFn = sortOrder === "asc" ? asc : desc;
+
+    // Build where conditions
+    const conditions = [eq(gitCommit.projectId, id)];
+
+    if (startDate) {
+      conditions.push(sql`${gitCommit.authorDate} >= ${startDate}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${gitCommit.authorDate} <= ${endDate}`);
+    }
+
+    const commits = await db
+      .select()
+      .from(gitCommit)
+      .where(and(...conditions))
+      .orderBy(orderFn(gitCommit.authorDate))
+      .limit(limit)
+      .offset(offset);
+
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(gitCommit)
+      .where(and(...conditions));
+
+    return c.json(
+      {
+        items: commits.map((c) => ({
+          id: c.id,
+          projectId: c.projectId,
+          sha: c.sha,
+          message: c.message,
+          authorName: c.authorName,
+          authorEmail: c.authorEmail,
+          authorDate: c.authorDate.toISOString(),
+          committerName: c.committerName,
+          committerDate: c.committerDate?.toISOString() ?? null,
+          parentShas: c.parentShas,
+        })),
+        total: Number(totalResult.count),
+        limit,
+        offset,
+      },
+      200
+    );
   });
 
   return app;

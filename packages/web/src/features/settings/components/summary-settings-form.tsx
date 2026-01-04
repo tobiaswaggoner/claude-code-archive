@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useConfigurationByCategory, useUpdateConfiguration } from "../hooks/use-configuration";
 import {
   Card,
@@ -58,28 +58,61 @@ function hasChanges(form: SummarySettings, original: SummarySettings): boolean {
 
 export function SummarySettingsForm() {
   const { data: configs, isLoading, error } = useConfigurationByCategory("summary");
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-56" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <div className="grid grid-cols-3 gap-4">
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <span className="text-sm font-medium">Failed to load settings</span>
+        </div>
+        <p className="mt-1 text-sm text-destructive/80">{error.message}</p>
+      </div>
+    );
+  }
+
+  // Render form only when configs are available
+  if (!configs) {
+    return null;
+  }
+
+  return <SummarySettingsFormInner initialConfigs={configs} />;
+}
+
+interface SummarySettingsFormInnerProps {
+  initialConfigs: Configuration[];
+}
+
+function SummarySettingsFormInner({ initialConfigs }: SummarySettingsFormInnerProps) {
   const updateMutation = useUpdateConfiguration();
 
-  const [form, setForm] = useState<SummarySettings>({
-    prompt_template: "",
-    model: "",
-    max_tokens: "",
-    history_count: "",
-    temperature: "",
-  });
-  const [originalForm, setOriginalForm] = useState<SummarySettings>(form);
+  // Initialize form state from props - no useEffect needed
+  const [form, setForm] = useState<SummarySettings>(() => configsToFormState(initialConfigs));
+  const [originalForm, setOriginalForm] = useState<SummarySettings>(() => configsToFormState(initialConfigs));
   const [errors, setErrors] = useState<FormErrors>({});
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-
-  // Initialize form when configs load
-  useEffect(() => {
-    if (configs) {
-      const state = configsToFormState(configs);
-      setForm(state);
-      setOriginalForm(state);
-      setErrors({});
-    }
-  }, [configs]);
 
   const validate = useCallback((): boolean => {
     const newErrors: FormErrors = {};
@@ -146,40 +179,6 @@ export function SummarySettingsForm() {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-4 w-56" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <div className="grid grid-cols-3 gap-4">
-            <Skeleton className="h-9" />
-            <Skeleton className="h-9" />
-            <Skeleton className="h-9" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          <span className="text-sm font-medium">Failed to load settings</span>
-        </div>
-        <p className="mt-1 text-sm text-destructive/80">{error.message}</p>
-      </div>
-    );
-  }
 
   const isDirty = hasChanges(form, originalForm);
   const canSave = isDirty && saveStatus !== "saving";

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useInject } from "@/core/di";
 import { TOKENS } from "@/core/di/tokens";
 import type { ProjectsService } from "../services/projects.service";
-import type { ProjectListParams } from "../types/project";
+import type { ProjectListParams, GitCommitListParams } from "../types/project";
 import type { ProjectUpdateInput } from "../types/project-update";
 
 export function useProjects(params?: ProjectListParams) {
@@ -50,5 +50,15 @@ export function useUpdateProject() {
       // Invalidate the list to refetch with updated data
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
+  });
+}
+
+export function useProjectCommits(id: string, params?: GitCommitListParams) {
+  const projectsService = useInject<ProjectsService>(TOKENS.ProjectsService);
+
+  return useQuery({
+    queryKey: ["project", id, "commits", params],
+    queryFn: () => projectsService.getCommits(id, params),
+    enabled: !!id,
   });
 }

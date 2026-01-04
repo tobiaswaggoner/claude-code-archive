@@ -72,6 +72,38 @@ export const projectSchema = z.object({
   archived: z.boolean(),
 });
 
+export const projectUpdateSchema = z.object({
+  name: z.string().min(1).max(255).optional().openapi({
+    description: "Project name",
+    example: "My Project",
+  }),
+  description: z.string().max(2000).nullable().optional().openapi({
+    description: "Project description",
+    example: "A detailed description of the project",
+  }),
+  upstreamUrl: z.string().url().nullable().optional().openapi({
+    description: "Upstream repository URL",
+    example: "https://github.com/example/repo",
+  }),
+  archived: z.boolean().optional().openapi({
+    description: "Archive status",
+    example: false,
+  }),
+});
+
+export const gitCommitSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  sha: z.string(),
+  message: z.string(),
+  authorName: z.string(),
+  authorEmail: z.string(),
+  authorDate: z.string().datetime(),
+  committerName: z.string().nullable(),
+  committerDate: z.string().datetime().nullable(),
+  parentShas: z.array(z.string()).nullable(),
+});
+
 // Session schemas
 export const sessionSchema = z.object({
   id: z.string().uuid(),

@@ -50,3 +50,31 @@ export interface Workspace {
 export interface WorkspaceListResponse {
   items: Workspace[];
 }
+
+export interface GitCommit {
+  id: string;
+  projectId: string;
+  sha: string;
+  message: string;
+  authorName: string;
+  authorEmail: string;
+  authorDate: string;
+  committerName: string | null;
+  committerDate: string | null;
+  parentShas: string[] | null;
+}
+
+export interface GitCommitListResponse {
+  items: GitCommit[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface GitCommitListParams {
+  limit?: number;
+  offset?: number;
+  startDate?: string;
+  endDate?: string;
+  sortOrder?: SortOrder;
+}
