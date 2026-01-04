@@ -119,18 +119,18 @@ const getSessionFirstEntryRoute = createRoute({
   method: "get",
   path: "/sessions/{id}/first-entry",
   tags: ["entries"],
-  summary: "Get first entry of session",
-  description: "Get the first entry (by line number) of a session",
+  summary: "Get first user message of session",
+  description: "Get the first user/human message (by line number) of a session",
   request: {
     params: z.object({ id: z.string().uuid() }),
   },
   responses: {
     200: {
-      description: "First entry of the session",
+      description: "First user message of the session",
       content: { "application/json": { schema: entrySchema } },
     },
     404: {
-      description: "No entries found",
+      description: "No user entries found",
       content: { "application/json": { schema: errorSchema } },
     },
   },
@@ -314,19 +314,25 @@ export function createSessionRoutes() {
     );
   });
 
-  // Get first entry of session
+  // Get first user entry of session
   app.openapi(getSessionFirstEntryRoute, async (c) => {
     const { id } = c.req.valid("param");
 
+    // Find first user/human message (the actual first user input)
     const [firstEntry] = await db
       .select()
       .from(entry)
-      .where(eq(entry.sessionId, id))
+      .where(
+        and(
+          eq(entry.sessionId, id),
+          sql`${entry.type} IN ('user', 'human')`
+        )
+      )
       .orderBy(asc(entry.lineNumber))
       .limit(1);
 
     if (!firstEntry) {
-      return c.json({ error: "No entries found" }, 404);
+      return c.json({ error: "No user entries found" }, 404);
     }
 
     return c.json(formatEntry(firstEntry), 200);
