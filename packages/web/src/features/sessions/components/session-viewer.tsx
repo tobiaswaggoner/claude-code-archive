@@ -36,7 +36,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format, differenceInMinutes, differenceInHours } from "date-fns";
 import type { Entry } from "../types/session";
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -607,9 +607,9 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
         ) : (
           displayEntries.map((item) =>
             isToolGroup(item) ? (
-              <ToolGroupCard key={item.id} group={item} />
+              <ToolGroupCard key={item.id} group={item} sessionStart={session.firstEntryAt} />
             ) : (
-              <EntryCard key={item.id} entry={item} />
+              <EntryCard key={item.id} entry={item} sessionStart={session.firstEntryAt} />
             )
           )
         )}
@@ -621,10 +621,11 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
 
 interface EntryCardProps {
   entry: Entry;
+  sessionStart: string | null;
 }
 
-function EntryCard({ entry }: EntryCardProps) {
-  const { subtype, data } = entry;
+function EntryCard({ entry, sessionStart }: EntryCardProps) {
+  const { subtype, data, timestamp } = entry;
 
   const category = categorizeEntry(entry);
   const config = categoryConfig[category];
@@ -692,6 +693,11 @@ function EntryCard({ entry }: EntryCardProps) {
           <span className="text-xs text-muted-foreground ml-auto shrink-0">
             {formatBytes(contentSize)}
           </span>
+          {timestamp && sessionStart && (
+            <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0">
+              {formatCompactTime(timestamp)} {formatDelta(timestamp, sessionStart)}
+            </span>
+          )}
           <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
         </div>
       </div>
@@ -735,14 +741,21 @@ function EntryCard({ entry }: EntryCardProps) {
             </CollapsibleContent>
           )}
         </div>
-        {shouldCollapse && (
-          <button
-            onClick={() => setIsCollapsed(true)}
-            className="text-muted-foreground hover:text-primary shrink-0 mt-0.5"
-          >
-            <ChevronUp className="h-3 w-3" />
-          </button>
-        )}
+        <div className="flex flex-col items-end gap-0.5 shrink-0 mt-0.5">
+          {timestamp && sessionStart && (
+            <span className="text-[10px] text-muted-foreground/60 font-mono">
+              {formatCompactTime(timestamp)} {formatDelta(timestamp, sessionStart)}
+            </span>
+          )}
+          {shouldCollapse && (
+            <button
+              onClick={() => setIsCollapsed(true)}
+              className="text-muted-foreground hover:text-primary"
+            >
+              <ChevronUp className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -751,15 +764,17 @@ function EntryCard({ entry }: EntryCardProps) {
 // Grouped tool card component
 interface ToolGroupCardProps {
   group: ToolGroup;
+  sessionStart: string | null;
 }
 
-function ToolGroupCard({ group }: ToolGroupCardProps) {
+function ToolGroupCard({ group, sessionStart }: ToolGroupCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const hasResult = !!group.toolResult;
   const toolInput = getToolInput(group.toolUse);
   const toolOutput = group.toolResult ? getEntryContent(group.toolResult) : null;
   const label = `Tool: ${group.toolName}`;
+  const timestamp = group.toolUse.timestamp;
 
   return (
     <div className="rounded-md border bg-card border-border px-2 py-1.5">
@@ -786,6 +801,11 @@ function ToolGroupCard({ group }: ToolGroupCardProps) {
         <span className="text-xs text-muted-foreground ml-auto shrink-0">
           {formatBytes(toolInput.length + (toolOutput?.length || 0))}
         </span>
+        {timestamp && sessionStart && (
+          <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0">
+            {formatCompactTime(timestamp)} {formatDelta(timestamp, sessionStart)}
+          </span>
+        )}
         {expanded ? (
           <ChevronUp className="h-3 w-3 text-muted-foreground shrink-0" />
         ) : (
@@ -997,6 +1017,25 @@ function formatTokens(tokens: number): string {
     return `${(tokens / 1_000).toFixed(1)}K`;
   }
   return String(tokens);
+}
+
+function formatCompactTime(timestamp: string): string {
+  return format(new Date(timestamp), "HH:mm");
+}
+
+function formatDelta(timestamp: string, sessionStart: string): string {
+  const entryTime = new Date(timestamp);
+  const startTime = new Date(sessionStart);
+  const totalMinutes = differenceInMinutes(entryTime, startTime);
+
+  if (totalMinutes < 1) return "+0m";
+  if (totalMinutes < 60) return `+${totalMinutes}m`;
+
+  const hours = differenceInHours(entryTime, startTime);
+  const minutes = totalMinutes % 60;
+
+  if (minutes === 0) return `+${hours}h`;
+  return `+${hours}h${minutes}m`;
 }
 
 function formatBytes(bytes: number): string {
