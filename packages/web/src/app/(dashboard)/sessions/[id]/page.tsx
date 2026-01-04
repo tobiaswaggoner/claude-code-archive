@@ -15,7 +15,7 @@ export default function SessionDetailPage({ params }: SessionDetailPageProps) {
   const { id } = use(params);
 
   return (
-    <>
+    <div className="flex flex-col h-full overflow-hidden">
       <PageHeader
         title="Session Details"
         description="View conversation entries"
@@ -28,9 +28,9 @@ export default function SessionDetailPage({ params }: SessionDetailPageProps) {
         </Button>
       </PageHeader>
 
-      <main className="flex-1 overflow-auto p-4">
+      <main className="flex-1 overflow-hidden p-4 flex flex-col min-h-0">
         <SessionViewer sessionId={id} />
       </main>
-    </>
+    </div>
   );
 }
