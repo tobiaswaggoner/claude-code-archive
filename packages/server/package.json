@@ -28,6 +28,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.8",
     "@hono/zod-openapi": "^0.18.4",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@scalar/hono-api-reference": "^0.5.169",
     "better-auth": "^1.4.10",
     "drizzle-orm": "^0.45.1",

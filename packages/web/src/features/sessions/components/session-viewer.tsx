@@ -29,7 +29,9 @@ import {
   XCircle,
   CheckCircle,
   Slash,
+  RefreshCw,
 } from "lucide-react";
+import { RegenerateSummaryDialog } from "./regenerate-summary-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -353,6 +355,7 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
   const [showTools, setShowTools] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
   const [showInternal, setShowInternal] = useState(false);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
   // Entries come in desc order (newest first), we reverse for chronological display
   const entries = useMemo(() => {
@@ -447,184 +450,211 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Compact Session Header - fixed outside scroll area */}
-      <div className="rounded-lg border bg-card px-3 py-2 mb-2 shrink-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Title + Date + Location */}
-          <h2 className="text-sm font-semibold truncate">
-            {session.summary || `Session ${session.originalSessionId.slice(0, 8)}`}
-          </h2>
-          {session.firstEntryAt && (
-            <span className="text-xs font-medium text-primary">
-              {format(new Date(session.firstEntryAt), "dd.MM.yyyy HH:mm")}
-            </span>
-          )}
-          <span className="text-xs text-muted-foreground truncate">
-            {session.workspaceHost} · {session.projectName || session.workspaceCwd}
-          </span>
+      {(() => {
+        const { title, description } = parseSummary(session.summary);
+        return (
+          <div className="rounded-lg border bg-card px-3 py-2 mb-2 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Title + Date + Location */}
+              <h2 className="text-sm font-semibold truncate">
+                {title || `Session ${session.originalSessionId.slice(0, 8)}`}
+              </h2>
+              {session.firstEntryAt && (
+                <span className="text-xs font-medium text-primary">
+                  {format(new Date(session.firstEntryAt), "dd.MM.yyyy HH:mm")}
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground truncate">
+                {session.workspaceHost} · {session.projectName || session.workspaceCwd}
+              </span>
 
-          {/* Stats - icon only with tooltips */}
-          <div className="flex items-center gap-1.5 ml-auto text-muted-foreground">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-0.5 text-xs">
-                  <MessageSquare className="h-3 w-3" />
-                  <span>{session.entryCount}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {session.entryCount} entries
-              </TooltipContent>
-            </Tooltip>
-
-            {session.agents && session.agents.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-0.5 text-xs">
-                    <Bot className="h-3 w-3" />
-                    <span>{session.agents.length}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {session.agents.length} agent sessions
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-            {session.modelsUsed && session.modelsUsed.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center">
-                    <Cpu className="h-3 w-3" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {session.modelsUsed.join(", ")}
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-0.5 text-xs font-mono">
-                  <span>{formatTokens(session.totalInputTokens)}/{formatTokens(session.totalOutputTokens)}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {formatTokens(session.totalInputTokens)} in / {formatTokens(session.totalOutputTokens)} out
-              </TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center">
-                  <Clock className="h-3 w-3" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {session.lastEntryAt
-                  ? formatDistanceToNow(new Date(session.lastEntryAt), { addSuffix: true })
-                  : "-"}
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Filter Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <Filter className="h-3 w-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-3" align="end">
-                <div className="space-y-3">
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Show ({displayEntries.length}/{entries.length})
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="show-tools"
-                        checked={showTools}
-                        onCheckedChange={(checked) => setShowTools(checked === true)}
-                      />
-                      <Label htmlFor="show-tools" className="text-sm cursor-pointer">
-                        Tools
-                      </Label>
+              {/* Stats - icon only with tooltips */}
+              <div className="flex items-center gap-1.5 ml-auto text-muted-foreground">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-0.5 text-xs">
+                      <MessageSquare className="h-3 w-3" />
+                      <span>{session.entryCount}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="show-thinking"
-                        checked={showThinking}
-                        onCheckedChange={(checked) => setShowThinking(checked === true)}
-                      />
-                      <Label htmlFor="show-thinking" className="text-sm cursor-pointer">
-                        Thinking
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="show-internal"
-                        checked={showInternal}
-                        onCheckedChange={(checked) => setShowInternal(checked === true)}
-                      />
-                      <Label htmlFor="show-internal" className="text-sm cursor-pointer">
-                        Internal
-                      </Label>
-                    </div>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {session.entryCount} entries
+                  </TooltipContent>
+                </Tooltip>
 
-            {/* Session Navigation */}
-            <div className="flex items-center gap-0.5 border-l pl-1.5 ml-0.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    disabled={!adjacent?.prev}
-                    asChild={!!adjacent?.prev}
-                  >
-                    {adjacent?.prev ? (
-                      <Link href={`/sessions/${adjacent.prev}`}>
-                        <ChevronLeft className="h-3 w-3" />
-                      </Link>
-                    ) : (
-                      <span><ChevronLeft className="h-3 w-3" /></span>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Previous session
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    disabled={!adjacent?.next}
-                    asChild={!!adjacent?.next}
-                  >
-                    {adjacent?.next ? (
-                      <Link href={`/sessions/${adjacent.next}`}>
-                        <ChevronRight className="h-3 w-3" />
-                      </Link>
-                    ) : (
-                      <span><ChevronRight className="h-3 w-3" /></span>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Next session
-                </TooltipContent>
-              </Tooltip>
+                {session.agents && session.agents.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-0.5 text-xs">
+                        <Bot className="h-3 w-3" />
+                        <span>{session.agents.length}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {session.agents.length} agent sessions
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
+                {session.modelsUsed && session.modelsUsed.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center">
+                        <Cpu className="h-3 w-3" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {session.modelsUsed.join(", ")}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-0.5 text-xs font-mono">
+                      <span>{formatTokens(session.totalInputTokens)}/{formatTokens(session.totalOutputTokens)}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {formatTokens(session.totalInputTokens)} in / {formatTokens(session.totalOutputTokens)} out
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center">
+                      <Clock className="h-3 w-3" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {session.lastEntryAt
+                      ? formatDistanceToNow(new Date(session.lastEntryAt), { addSuffix: true })
+                      : "-"}
+                  </TooltipContent>
+                </Tooltip>
+
+                {/* Regenerate Summary */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setShowRegenerateDialog(true)}
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Regenerate summary
+                  </TooltipContent>
+                </Tooltip>
+
+                {/* Filter Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                      <Filter className="h-3 w-3" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-3" align="end">
+                    <div className="space-y-3">
+                      <div className="text-xs font-medium text-muted-foreground">
+                        Show ({displayEntries.length}/{entries.length})
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="show-tools"
+                            checked={showTools}
+                            onCheckedChange={(checked) => setShowTools(checked === true)}
+                          />
+                          <Label htmlFor="show-tools" className="text-sm cursor-pointer">
+                            Tools
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="show-thinking"
+                            checked={showThinking}
+                            onCheckedChange={(checked) => setShowThinking(checked === true)}
+                          />
+                          <Label htmlFor="show-thinking" className="text-sm cursor-pointer">
+                            Thinking
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="show-internal"
+                            checked={showInternal}
+                            onCheckedChange={(checked) => setShowInternal(checked === true)}
+                          />
+                          <Label htmlFor="show-internal" className="text-sm cursor-pointer">
+                            Internal
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Session Navigation */}
+                <div className="flex items-center gap-0.5 border-l pl-1.5 ml-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        disabled={!adjacent?.prev}
+                        asChild={!!adjacent?.prev}
+                      >
+                        {adjacent?.prev ? (
+                          <Link href={`/sessions/${adjacent.prev}`}>
+                            <ChevronLeft className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <span><ChevronLeft className="h-3 w-3" /></span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Previous session
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        disabled={!adjacent?.next}
+                        asChild={!!adjacent?.next}
+                      >
+                        {adjacent?.next ? (
+                          <Link href={`/sessions/${adjacent.next}`}>
+                            <ChevronRight className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <span><ChevronRight className="h-3 w-3" /></span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Next session
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
             </div>
+            {description && (
+              <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line">
+                {description}
+              </p>
+            )}
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Scrollable Entries (Tail View) */}
       <TooltipProvider delayDuration={300}>
@@ -720,6 +750,12 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
         )}
       </div>
       </TooltipProvider>
+
+      <RegenerateSummaryDialog
+        sessionId={sessionId}
+        open={showRegenerateDialog}
+        onOpenChange={setShowRegenerateDialog}
+      />
     </div>
   );
 }
@@ -1122,6 +1158,15 @@ function formatTokens(tokens: number): string {
     return `${(tokens / 1_000).toFixed(1)}K`;
   }
   return String(tokens);
+}
+
+function parseSummary(summary: string | null): { title: string | null; description: string | null } {
+  if (!summary) return { title: null, description: null };
+  const lines = summary.split("\n");
+  const title = lines[0]?.trim() || null;
+  const remainingLines = lines.slice(1).filter(line => line.trim());
+  const description = remainingLines.length > 0 ? remainingLines.join("\n") : null;
+  return { title, description };
 }
 
 function formatCompactTime(timestamp: string): string {

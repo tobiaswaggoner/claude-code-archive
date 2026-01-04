@@ -70,3 +70,16 @@ export interface EntryListParams {
   type?: string;
   order?: "asc" | "desc";
 }
+
+export interface GenerateSummaryRequest {
+  userInstructions?: string;
+}
+
+export interface GenerateSummaryResponse {
+  summary: string;
+  model: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+  };
+}

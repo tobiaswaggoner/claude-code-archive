@@ -6,6 +6,8 @@ import type {
   Entry,
   EntryListParams,
   EntryListResponse,
+  GenerateSummaryRequest,
+  GenerateSummaryResponse,
 } from "../types/session";
 
 export class SessionsService {
@@ -35,5 +37,15 @@ export class SessionsService {
 
   async getAdjacent(sessionId: string): Promise<{ prev: string | null; next: string | null }> {
     return this.api.get<{ prev: string | null; next: string | null }>(`/api/sessions/${sessionId}/adjacent`);
+  }
+
+  async generateSummary(
+    sessionId: string,
+    request?: GenerateSummaryRequest
+  ): Promise<GenerateSummaryResponse> {
+    return this.api.post<GenerateSummaryResponse>(
+      `/api/sessions/${sessionId}/summary`,
+      request || {}
+    );
   }
 }

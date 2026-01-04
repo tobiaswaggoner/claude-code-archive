@@ -15,6 +15,7 @@ import {
 import { ProjectsService } from "@/features/projects";
 import { SessionsService } from "@/features/sessions";
 import { ActivityService } from "@/features/activity";
+import { ConfigurationService, ModelsService } from "@/features/settings";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
@@ -65,6 +66,14 @@ function registerServices(target: Container) {
   target.register(
     TOKENS.ActivityService,
     () => new ActivityService(target.resolve(TOKENS.ApiClient))
+  );
+  target.register(
+    TOKENS.ConfigurationService,
+    () => new ConfigurationService(target.resolve(TOKENS.ApiClient))
+  );
+  target.register(
+    TOKENS.ModelsService,
+    () => new ModelsService(target.resolve(TOKENS.ApiClient))
   );
 }
 

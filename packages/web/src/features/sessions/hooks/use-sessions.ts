@@ -1,10 +1,10 @@
 "use client";
 
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useInject } from "@/core/di";
 import { TOKENS } from "@/core/di/tokens";
 import type { SessionsService } from "../services/sessions.service";
-import type { SessionListParams, EntryListParams } from "../types/session";
+import type { SessionListParams, EntryListParams, GenerateSummaryRequest } from "../types/session";
 
 export function useSessions(params?: SessionListParams) {
   const sessionsService = useInject<SessionsService>(TOKENS.SessionsService);
@@ -87,5 +87,18 @@ export function useSessionAdjacent(sessionId: string) {
     queryFn: () => sessionsService.getAdjacent(sessionId),
     enabled: !!sessionId,
     staleTime: 30_000,
+  });
+}
+
+export function useGenerateSummary(sessionId: string) {
+  const sessionsService = useInject<SessionsService>(TOKENS.SessionsService);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request?: GenerateSummaryRequest) =>
+      sessionsService.generateSummary(sessionId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+    },
   });
 }

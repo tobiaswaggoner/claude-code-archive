@@ -150,7 +150,7 @@ export function SessionList({ projectId }: SessionListProps) {
                       </div>
                       <div>
                         <div className="font-medium text-sm truncate max-w-[200px]">
-                          {session.summary ||
+                          {getSummaryTitle(session.summary) ||
                             `Session ${session.originalSessionId.slice(0, 8)}`}
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -226,4 +226,10 @@ function formatTokens(tokens: number): string {
     return `${(tokens / 1_000).toFixed(1)}K`;
   }
   return String(tokens);
+}
+
+function getSummaryTitle(summary: string | null): string | null {
+  if (!summary) return null;
+  const firstLine = summary.split("\n")[0].trim();
+  return firstLine || null;
 }

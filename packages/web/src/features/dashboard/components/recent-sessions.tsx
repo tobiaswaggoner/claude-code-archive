@@ -17,6 +17,12 @@ interface RecentSessionsProps {
   sessions: Session[];
 }
 
+function getSummaryTitle(summary: string | null): string | null {
+  if (!summary) return null;
+  const firstLine = summary.split("\n")[0].trim();
+  return firstLine || null;
+}
+
 export function RecentSessions({ sessions }: RecentSessionsProps) {
   return (
     <Card>
@@ -43,7 +49,7 @@ export function RecentSessions({ sessions }: RecentSessionsProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">
-                  {session.summary || `Session ${session.id.slice(0, 8)}`}
+                  {getSummaryTitle(session.summary) || `Session ${session.id.slice(0, 8)}`}
                 </p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{session.projectName}</span>
