@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   CalendarDays,
   LayoutDashboard,
+  GanttChart,
 } from "lucide-react";
 
 import {
@@ -54,6 +55,7 @@ const navItems = {
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
     { title: "Projects", url: "/projects", icon: FolderOpen },
     { title: "Sessions", url: "/sessions", icon: MessageSquare },
+    { title: "Timeline", url: "/timeline", icon: GanttChart },
     { title: "Activity", url: "/activity", icon: CalendarDays },
   ],
   git: [

@@ -29,11 +29,11 @@ Hinweis: Nutze den "notify" skill um Zwischenmeldungen bei erreichen eines Zwisc
     - [x] Implementiert
     - [x] Validiert
     - [x] Commit & Push
-- [ ] docs\features\timeline.md
-    - [ ] Plan erstellt
-    - [ ] Implementiert
-    - [ ] Validiert
-    - [ ] Commit & Push
+- [x] docs\features\timeline.md
+    - [x] Plan erstellt
+    - [x] Implementiert
+    - [x] Validiert
+    - [x] Commit & Push
 
 
 ---
@@ -42,4 +42,8 @@ Hinweis: Nutze den "notify" skill um Zwischenmeldungen bei erreichen eines Zwisc
 
 - Project View: InlineEditField als generische shared/ui Komponente implementiert für Wiederverwendbarkeit
 - Project View: Timeline-Ansicht direkt in ProjectDetail integriert statt separater Komponente
-- Project View: Git-Commits werden nur bei Bedarf geladen (Checkbox-Toggle) für bessere Performance 
+- Project View: Git-Commits werden nur bei Bedarf geladen (Checkbox-Toggle) für bessere Performance
+- Timeline: Eigene Feature-Struktur unter /features/timeline mit Types, Hooks und Components
+- Timeline: useSyncExternalStore für hydration-safe localStorage-Zugriff (Filter Persistenz)
+- Timeline: Gantt-Chart Style mit CSS, keine externe Charting-Library für Flexibilität
+- Timeline: 5 Zoom-Levels (1d, 1w, 1m, 3m, 1y) mit angepassten Tick-Intervallen
