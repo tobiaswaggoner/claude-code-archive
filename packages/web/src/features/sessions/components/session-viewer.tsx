@@ -443,7 +443,7 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Compact Session Header */}
+      {/* Compact Session Header - fixed outside scroll area */}
       <div className="rounded-lg border bg-card px-3 py-2 mb-2 shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Title + Location */}
@@ -570,42 +570,6 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
         </div>
       </div>
 
-      {/* Pinned First Entry - only show when not all entries are loaded */}
-      {firstEntry && hasNextPage && (
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b mb-2 shrink-0">
-          <div className="px-2 py-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
-            <div className="flex gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-500/20 shrink-0 mt-0.5">
-                    <Pin className="h-3 w-3 text-blue-500" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  First message of session
-                </TooltipContent>
-              </Tooltip>
-              <div className="flex-1 min-w-0">
-                <CollapsibleContent maxHeight={60}>
-                  <div className="text-sm">
-                    {hasXmlContent(getEntryContent(firstEntry)) ? (
-                      <FormattedXmlContent content={getEntryContent(firstEntry)} />
-                    ) : (
-                      <Markdown>{getEntryContent(firstEntry)}</Markdown>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </div>
-              {firstEntry.timestamp && (
-                <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0 mt-0.5">
-                  {formatCompactTime(firstEntry.timestamp)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Scrollable Entries (Tail View) */}
       <TooltipProvider delayDuration={300}>
       <div
@@ -613,6 +577,42 @@ export function SessionViewer({ sessionId }: SessionViewerProps) {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto space-y-1.5 min-h-0"
       >
+        {/* Pinned First Entry - sticky within scroll area */}
+        {firstEntry && hasNextPage && (
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur -mx-0.5 px-0.5 pb-1.5">
+            <div className="px-2 py-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
+              <div className="flex gap-1.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-500/20 shrink-0 mt-0.5">
+                      <Pin className="h-3 w-3 text-blue-500" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    First message of session
+                  </TooltipContent>
+                </Tooltip>
+                <div className="flex-1 min-w-0">
+                  <CollapsibleContent maxHeight={60}>
+                    <div className="text-sm">
+                      {hasXmlContent(getEntryContent(firstEntry)) ? (
+                        <FormattedXmlContent content={getEntryContent(firstEntry)} />
+                      ) : (
+                        <Markdown>{getEntryContent(firstEntry)}</Markdown>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </div>
+                {firstEntry.timestamp && (
+                  <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0 mt-0.5">
+                    {formatCompactTime(firstEntry.timestamp)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Load more indicator at top */}
         {hasNextPage && (
           <div className="flex justify-center gap-2 py-2">
