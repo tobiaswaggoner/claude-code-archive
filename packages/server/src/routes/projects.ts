@@ -330,7 +330,7 @@ export function createProjectRoutes() {
             const [sCount] = await db
               .select({ count: sql<number>`count(*)` })
               .from(session)
-              .where(eq(session.workspaceId, wsId));
+              .where(and(eq(session.workspaceId, wsId), eq(session.isEmpty, false)));
             sessionCount += Number(sCount.count);
           }
         }
@@ -397,7 +397,7 @@ export function createProjectRoutes() {
       const [sCount] = await db
         .select({ count: sql<number>`count(*)` })
         .from(session)
-        .where(eq(session.workspaceId, ws.id));
+        .where(and(eq(session.workspaceId, ws.id), eq(session.isEmpty, false)));
       sessionCount += Number(sCount.count);
     }
 
@@ -429,7 +429,7 @@ export function createProjectRoutes() {
         const [sCount] = await db
           .select({ count: sql<number>`count(*)` })
           .from(session)
-          .where(eq(session.workspaceId, w.id));
+          .where(and(eq(session.workspaceId, w.id), eq(session.isEmpty, false)));
 
         return {
           id: w.id,
@@ -538,7 +538,7 @@ export function createProjectRoutes() {
       const [sCount] = await db
         .select({ count: sql<number>`count(*)` })
         .from(session)
-        .where(eq(session.workspaceId, ws.id));
+        .where(and(eq(session.workspaceId, ws.id), eq(session.isEmpty, false)));
       sessionCount += Number(sCount.count);
     }
 

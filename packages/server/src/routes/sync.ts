@@ -14,6 +14,7 @@ import {
 } from "../db/schema/index.js";
 import { syncDataSchema, errorSchema } from "./schemas.js";
 import { normalizeUpstreamUrl } from "../lib/utils.js";
+import { calculateIsEmpty } from "../lib/entry-utils.js";
 
 /**
  * Recursively remove null bytes from JSON data.
@@ -529,6 +530,15 @@ async function updateSessionAggregates(sessionId: string, fileCreatedAt: Date) {
   const firstEntryAt = timestamps.length > 0 ? new Date(Math.min(...timestamps)) : fileCreatedAt;
   const lastEntryAt = timestamps.length > 0 ? new Date(Math.max(...timestamps)) : fileCreatedAt;
 
+  // Calculate isEmpty flag based on entry analysis
+  const isEmpty = calculateIsEmpty(
+    entries.map((e) => ({
+      type: e.type,
+      subtype: e.subtype,
+      data: e.data as Record<string, unknown>,
+    }))
+  );
+
   await db
     .update(session)
     .set({
@@ -539,6 +549,7 @@ async function updateSessionAggregates(sessionId: string, fileCreatedAt: Date) {
       totalInputTokens,
       totalOutputTokens,
       summary,
+      isEmpty,
       syncedAt: new Date(),
     })
     .where(eq(session.id, sessionId));

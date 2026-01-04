@@ -1,0 +1,1 @@
+ALTER TABLE "claude_archive"."session" ADD COLUMN "is_empty" boolean DEFAULT false NOT NULL;

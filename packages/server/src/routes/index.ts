@@ -7,6 +7,7 @@ import { createProjectRoutes } from "./projects.js";
 import { createSessionRoutes } from "./sessions.js";
 import { createConfigurationRoutes } from "./configuration.js";
 import { createModelsRoutes } from "./models.js";
+import { createAdminRoutes } from "./admin.js";
 
 export function createApiRouter() {
   const api = createOpenAPIApp();
@@ -19,6 +20,7 @@ export function createApiRouter() {
   api.route("/", createSessionRoutes());
   api.route("/", createConfigurationRoutes());
   api.route("/", createModelsRoutes());
+  api.route("/", createAdminRoutes());
 
   return api;
 }

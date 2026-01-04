@@ -16,6 +16,7 @@ export interface Session {
   modelsUsed: string[] | null;
   totalInputTokens: number;
   totalOutputTokens: number;
+  isEmpty: boolean;
   syncedAt: string;
   // Extended fields from list endpoint
   workspaceHost?: string;

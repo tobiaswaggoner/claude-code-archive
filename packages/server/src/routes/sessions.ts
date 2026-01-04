@@ -249,6 +249,10 @@ export function createSessionRoutes() {
 
     // Build where conditions array
     const conditions = [];
+
+    // Always filter out empty sessions
+    conditions.push(eq(session.isEmpty, false));
+
     if (workspaceId) {
       conditions.push(eq(session.workspaceId, workspaceId));
     }
@@ -377,7 +381,7 @@ export function createSessionRoutes() {
     const projectId = current.workspace.projectId;
     const currentFirstEntryAt = current.session.firstEntryAt;
 
-    // Find previous session (earlier firstEntryAt, same project, main sessions only)
+    // Find previous session (earlier firstEntryAt, same project, main sessions only, non-empty)
     const [prevSession] = currentFirstEntryAt
       ? await db
           .select({ id: session.id })
@@ -387,6 +391,7 @@ export function createSessionRoutes() {
             and(
               eq(workspace.projectId, projectId),
               isNull(session.parentSessionId),
+              eq(session.isEmpty, false),
               sql`${session.firstEntryAt} < ${currentFirstEntryAt.toISOString()}`
             )
           )
@@ -394,7 +399,7 @@ export function createSessionRoutes() {
           .limit(1)
       : [];
 
-    // Find next session (later firstEntryAt, same project, main sessions only)
+    // Find next session (later firstEntryAt, same project, main sessions only, non-empty)
     const [nextSession] = currentFirstEntryAt
       ? await db
           .select({ id: session.id })
@@ -404,6 +409,7 @@ export function createSessionRoutes() {
             and(
               eq(workspace.projectId, projectId),
               isNull(session.parentSessionId),
+              eq(session.isEmpty, false),
               sql`${session.firstEntryAt} > ${currentFirstEntryAt.toISOString()}`
             )
           )
@@ -551,6 +557,7 @@ function formatSession(s: typeof session.$inferSelect) {
     modelsUsed: s.modelsUsed,
     totalInputTokens: s.totalInputTokens ?? 0,
     totalOutputTokens: s.totalOutputTokens ?? 0,
+    isEmpty: s.isEmpty,
     syncedAt: s.syncedAt.toISOString(),
   };
 }

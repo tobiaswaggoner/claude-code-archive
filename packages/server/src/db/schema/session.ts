@@ -1,4 +1,5 @@
 import {
+  boolean,
   integer,
   pgSchema,
   text,
@@ -56,6 +57,9 @@ export const session = claudeArchiveSchema.table(
 
     // Aggregated output tokens
     totalOutputTokens: integer("total_output_tokens").default(0),
+
+    // Empty session flag (no real user or assistant interactions)
+    isEmpty: boolean("is_empty").default(false).notNull(),
 
     // Last sync timestamp
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull(),

@@ -119,6 +119,9 @@ export const sessionSchema = z.object({
   modelsUsed: z.array(z.string()).nullable(),
   totalInputTokens: z.number(),
   totalOutputTokens: z.number(),
+  isEmpty: z.boolean().openapi({
+    description: "True if session has no real user or assistant interactions",
+  }),
   syncedAt: z.string().datetime(),
 });
 
