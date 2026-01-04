@@ -18,14 +18,14 @@ export function useTimelineData() {
     sortOrder: "desc",
   });
 
-  // Fetch all main sessions
+  // Fetch all main sessions (max 1000 per API limit)
   const {
     data: sessionsData,
     isLoading: sessionsLoading,
     error: sessionsError,
   } = useSessions({
     mainOnly: true,
-    limit: 2000,
+    limit: 1000,
     sortBy: "lastEntryAt",
     sortOrder: "desc",
   });
